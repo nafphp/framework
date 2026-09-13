@@ -1,6 +1,6 @@
 <div align="center" style="text-align: center">
 
-![Logo](https://nafphp.github.io/docs/assets/naf-logo-small-square.png)
+![NAF](src/Resources/images/naf-logo-small-square.png)
 
 [![NAF Build & Test](https://github.com/nafphp/framework/actions/workflows/php.yml/badge.svg)](https://github.com/nafphp/framework/actions/workflows/php.yml)
 
