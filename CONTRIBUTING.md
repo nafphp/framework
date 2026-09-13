@@ -4,6 +4,10 @@ Thanks for your interest in contributing to **NAF** – a lightweight PHP microf
 
 Whether you're reporting a bug, suggesting a feature, or submitting a pull request — you're welcome here.
 
+Read [AGENTS.md](AGENTS.md) for the code map, extension contracts, executable host example
+and the shared contribution/release workflow. It records the maintainer's branch, merge
+and documentation publication instructions for this repository.
+
 ---
 
 ## 🧠 Philosophy
@@ -47,16 +51,30 @@ The framework consists of:
 - `src/Support/` — utility classes and helpers
 - `src/Resources/` — internal views and templates
 - `src/Exceptions/` — custom exception classes
-- `functions.php` — globally available general functions
-- `view_helpers.php` — view-specific helper functions
+- `src/Decorators/` — constructor autowiring around the base container
+- `src/functions.php` — public functions in the `Naf` namespace
+- `src/view_helpers.php` — internal fallback rendering helpers
 
-All code is PSR-4 autoloaded via Composer.
+Classes use Composer PSR-4 autoloading. The two helper files load through `autoload.files`;
+application code imports public functions explicitly with `use function`.
 
 ---
 
 ## 🧪 Tests
 
-Unit tests are planned — contributions in that area are also welcome.
+The PHPUnit suite lives in `tests/`, with shared bootstrap/configuration and application/plugin
+fixtures. Install development dependencies, validate the manifests and run it:
+
+```sh
+composer install
+composer validate --strict
+composer test
+```
+
+Add regression coverage for behavior changes. Boot, response emission and error handling
+also need a real HTTP/subprocess check; an in-process response object test does not verify
+headers on the wire. There is currently no Composer `analyse` script. Consult
+[AGENTS.md](AGENTS.md) for test boundaries and documentation verification.
 
 ---
 
