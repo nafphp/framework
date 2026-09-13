@@ -1,6 +1,6 @@
 {
-  "name": "nixphp/framework",
-  "description": "NixPHP - the ultra-light, functional PHP framework for fast microservices and APIs.",
+  "name": "naf/framework",
+  "description": "NAF - the ultra-light, functional PHP framework for fast microservices and APIs.",
   "minimum-stability": "stable",
   "license": "MIT",
   "type": "library",
@@ -12,7 +12,7 @@
   ],
   "autoload": {
     "psr-4": {
-      "NixPHP\\": "src/"
+      "Naf\\": "src/"
     },
     "files": [
       "src/functions.php",

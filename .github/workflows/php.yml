@@ -1,4 +1,4 @@
-name: NixPHP Framework
+name: NAF Framework
 
 on:
   push:

@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace NixPHP\Support;
+namespace Naf\Support;
 
-use NixPHP\Core\App;
-use NixPHP\Decorators\AutoResolvingContainer;
-use NixPHP\Core\Container;
+use Naf\Core\App;
+use Naf\Decorators\AutoResolvingContainer;
+use Naf\Core\Container;
 
 class AppHolder
 {

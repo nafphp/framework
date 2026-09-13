@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace NixPHP\Core;
+namespace Naf\Core;
 
 use ErrorException;
 use Psr\Http\Message\ResponseInterface;
-use function NixPHP\simple_view;
-use function NixPHP\response;
+use function Naf\simple_view;
+use function Naf\response;
 
 class ErrorHandler
 {
@@ -210,9 +210,9 @@ class ErrorHandler
 
         $hasWarned = true;
 
-        if (function_exists('NixPHP\\log')) {
+        if (function_exists('Naf\\log')) {
             try {
-                \NixPHP\log()->warning('APP_ENV is not set; defaulting to sanitized error output.');
+                \Naf\log()->warning('APP_ENV is not set; defaulting to sanitized error output.');
                 return;
             } catch (\Throwable) {
             }
@@ -303,11 +303,11 @@ class ErrorHandler
 
     private static function resolveBasePath(): ?string
     {
-        if (!defined('\NIXPHP_BASE_PATH')) {
+        if (!defined('\NAF_BASE_PATH')) {
             return null;
         }
 
-        $path = realpath(\NIXPHP_BASE_PATH);
+        $path = realpath(\NAF_BASE_PATH);
         return $path ?: null;
     }
 

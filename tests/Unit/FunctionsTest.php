@@ -4,20 +4,20 @@ namespace Tests\Unit;
 
 use Nyholm\Psr7\Request;
 use Nyholm\Psr7\ServerRequest;
-use NixPHP\Exceptions\AbortException;
+use Naf\Exceptions\AbortException;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
-use Tests\NixPHPTestCase;
-use function NixPHP\abort;
-use function NixPHP\app;
+use Tests\NafTestCase;
+use function Naf\abort;
+use function Naf\app;
 
-use function NixPHP\json;
-use function NixPHP\redirect;
-use function NixPHP\refresh;
-use function NixPHP\request;
+use function Naf\json;
+use function Naf\redirect;
+use function Naf\refresh;
+use function Naf\request;
 
-class FunctionsTest extends NixPHPTestCase
+class FunctionsTest extends NafTestCase
 {
 
     public function testFunctionRequest()

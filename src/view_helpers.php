@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace NixPHP;
+namespace Naf;
 
 use Psr\Http\Message\ResponseInterface;
 

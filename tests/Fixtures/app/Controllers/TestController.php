@@ -3,7 +3,7 @@
 namespace Fixtures\Controllers;
 
 use Nyholm\Psr7\Response;
-use function NixPHP\response;
+use function Naf\response;
 
 class TestController
 {

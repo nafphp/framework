@@ -2,10 +2,10 @@
 
 namespace Tests\Unit;
 
-use NixPHP\Support\Guard;
-use Tests\NixPHPTestCase;
+use Naf\Support\Guard;
+use Tests\NafTestCase;
 
-class GuardTest extends NixPHPTestCase
+class GuardTest extends NafTestCase
 {
 
     private Guard $guard;
@@ -96,7 +96,7 @@ class GuardTest extends NixPHPTestCase
 
     public function testHelperFunction()
     {
-        $this->assertInstanceOf(Guard::class, \NixPHP\guard() );;
+        $this->assertInstanceOf(Guard::class, \Naf\guard() );;
     }
 
 }

@@ -7,7 +7,7 @@
         displayDetailsOnPhpunitDeprecations="true">
 
     <testsuites>
-        <testsuite name="NixPHP Test Suite">
+        <testsuite name="NAF Test Suite">
             <directory>tests</directory>
         </testsuite>
     </testsuites>

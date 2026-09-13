@@ -2,7 +2,7 @@
 
 namespace Fixtures\Enums;
 
-use NixPHP\Core\Event;
+use Naf\Core\Event;
 
 class CustomEvent extends Event
 {

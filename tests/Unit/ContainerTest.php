@@ -2,13 +2,13 @@
 
 namespace Tests\Unit;
 
-use NixPHP\Core\Container;
-use NixPHP\Exceptions\ContainerException;
-use NixPHP\Exceptions\ServiceNotFoundException;
-use Tests\NixPHPTestCase;
-use function NixPHP\app;
+use Naf\Core\Container;
+use Naf\Exceptions\ContainerException;
+use Naf\Exceptions\ServiceNotFoundException;
+use Tests\NafTestCase;
+use function Naf\app;
 
-class ContainerTest extends NixPHPTestCase {
+class ContainerTest extends NafTestCase {
 
     public function testContainerInternals()
     {

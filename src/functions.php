@@ -1,23 +1,23 @@
 <?php
 declare(strict_types=1);
 
-namespace NixPHP;
+namespace Naf;
 
-if (!defined('NIXPHP_BASE_PATH')) {
-    define('NIXPHP_BASE_PATH', dirname(__DIR__));
+if (!defined('NAF_BASE_PATH')) {
+    define('NAF_BASE_PATH', dirname(__DIR__));
 }
 
-use NixPHP\Core\App;
-use NixPHP\Core\Config;
-use NixPHP\Core\ErrorHandler;
-use NixPHP\Core\EventManager;
-use NixPHP\Core\Route;
-use NixPHP\Core\Environment;
-use NixPHP\Exceptions\AbortException;
-use NixPHP\Support\AppHolder;
-use NixPHP\Support\Guard;
-use NixPHP\Support\Plugin;
-use NixPHP\Support\RequestParameter;
+use Naf\Core\App;
+use Naf\Core\Config;
+use Naf\Core\ErrorHandler;
+use Naf\Core\EventManager;
+use Naf\Core\Route;
+use Naf\Core\Environment;
+use Naf\Exceptions\AbortException;
+use Naf\Support\AppHolder;
+use Naf\Support\Guard;
+use Naf\Support\Plugin;
+use Naf\Support\RequestParameter;
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7\Stream;
 use Psr\Http\Message\RequestInterface;

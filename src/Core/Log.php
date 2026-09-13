@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace NixPHP\Core;
+namespace Naf\Core;
 
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;

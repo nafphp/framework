@@ -2,10 +2,10 @@
 
 namespace Tests\Unit;
 
-use NixPHP\Support\Plugin;
-use Tests\NixPHPTestCase;
+use Naf\Support\Plugin;
+use Tests\NafTestCase;
 
-class PluginTest extends NixPHPTestCase
+class PluginTest extends NafTestCase
 {
     public function testPluginStoresPathsCorrectly()
     {

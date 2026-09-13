@@ -2,12 +2,12 @@
 
 namespace Tests\Unit;
 
-use NixPHP\Core\Config;
-use Tests\NixPHPTestCase;
-use function NixPHP\app;
-use function NixPHP\config;
+use Naf\Core\Config;
+use Tests\NafTestCase;
+use function Naf\app;
+use function Naf\config;
 
-class ConfigTest extends NixPHPTestCase
+class ConfigTest extends NafTestCase
 {
 
     public function testConfigInternals()

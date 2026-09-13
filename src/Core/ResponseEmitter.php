@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace NixPHP\Core;
+namespace Naf\Core;
 
 use Psr\Http\Message\ResponseInterface;
 use Throwable;
-use function NixPHP\event;
-use function NixPHP\log;
+use function Naf\event;
+use function Naf\log;
 
 /**
  * Writes a PSR-7 response to the client.

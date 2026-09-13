@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace NixPHP\Core;
+namespace Naf\Core;
 
-use NixPHP\Decorators\AutoResolvingContainer;
+use Naf\Decorators\AutoResolvingContainer;
 use Psr\Http\Message\ResponseInterface;
-use function NixPHP\app;
+use function Naf\app;
 
 class EventManager
 {

@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace NixPHP\Core;
+namespace Naf\Core;
 
 use Composer\InstalledVersions;
-use NixPHP\Support\AppHolder;
-use NixPHP\Support\CoreFileLoader;
-use NixPHP\Support\Guard;
-use NixPHP\Support\Plugin;
-use NixPHP\Support\RequestParameter;
-use NixPHP\Support\Stopwatch;
+use Naf\Support\AppHolder;
+use Naf\Support\CoreFileLoader;
+use Naf\Support\Guard;
+use Naf\Support\Plugin;
+use Naf\Support\RequestParameter;
+use Naf\Support\Stopwatch;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7Server\ServerRequestCreator;
 use Psr\Container\ContainerInterface;
@@ -19,8 +19,8 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Log\LoggerInterface;
 use Throwable;
-use function NixPHP\event;
-use function NixPHP\log;
+use function Naf\event;
+use function Naf\log;
 
 class App
 {
@@ -216,11 +216,11 @@ class App
      */
     private function getCoreBasePath():? string
     {
-        if (!defined('\NIXPHP_BASE_PATH')) {
+        if (!defined('\NAF_BASE_PATH')) {
             return null;
         }
 
-        return \NIXPHP_BASE_PATH;
+        return \NAF_BASE_PATH;
     }
 
     /**
@@ -367,7 +367,7 @@ class App
             $orderedPackages = is_array($configured) ? $configured : [];
         }
 
-        $allPackages = array_unique(InstalledVersions::getInstalledPackagesByType('nixphp-plugin'));
+        $allPackages = array_unique(InstalledVersions::getInstalledPackagesByType('naf-plugin'));
         $ordered = array_filter($orderedPackages, fn($name) => in_array($name, $allPackages));
         $remaining = array_diff($allPackages, $ordered);
 

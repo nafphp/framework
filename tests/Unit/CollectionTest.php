@@ -2,10 +2,10 @@
 
 namespace Tests\Unit;
 
-use NixPHP\Support\Collection;
-use Tests\NixPHPTestCase;
+use Naf\Support\Collection;
+use Tests\NafTestCase;
 
-class CollectionTest extends NixPHPTestCase
+class CollectionTest extends NafTestCase
 {
 
     public function testCollectionInternals()

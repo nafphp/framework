@@ -1,16 +1,16 @@
 <?php
 declare(strict_types=1);
 
-namespace NixPHP\Core;
+namespace Naf\Core;
 
-use NixPHP\Decorators\AutoResolvingContainer;
-use NixPHP\Exceptions\DispatcherException;
-use NixPHP\Exceptions\RouteNotFoundException;
+use Naf\Decorators\AutoResolvingContainer;
+use Naf\Exceptions\DispatcherException;
+use Naf\Exceptions\RouteNotFoundException;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
-use function NixPHP\app;
-use function NixPHP\event;
-use function NixPHP\simple_render;
+use function Naf\app;
+use function Naf\event;
+use function Naf\simple_render;
 
 /**
  * Core dispatcher that handles HTTP request routing and execution.
@@ -62,7 +62,7 @@ class Dispatcher
             $route = $this->route->find($uri, $method);
         } catch (RouteNotFoundException $e) {
             if ($uri === '/' && $method === 'GET') {
-                return simple_render(__DIR__ . '/../Resources/views/nixphp_welcome.phtml');
+                return simple_render(__DIR__ . '/../Resources/views/naf_welcome.phtml');
             }
             throw $e;
         }

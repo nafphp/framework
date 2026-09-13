@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
-use NixPHP\Core\Container;
-use NixPHP\Decorators\AutoResolvingContainer;
-use NixPHP\Exceptions\ContainerException;
-use NixPHP\Exceptions\ServiceNotFoundException;
-use Tests\NixPHPTestCase;
+use Naf\Core\Container;
+use Naf\Decorators\AutoResolvingContainer;
+use Naf\Exceptions\ContainerException;
+use Naf\Exceptions\ServiceNotFoundException;
+use Tests\NafTestCase;
 
 // Test interfaces
 interface LoggerInterface {}
@@ -119,7 +119,7 @@ class DeepServiceA {
     ) {}
 }
 
-class AutoResolvingContainerTest extends NixPHPTestCase {
+class AutoResolvingContainerTest extends NafTestCase {
 
     private Container $baseContainer;
     private AutoResolvingContainer $container;

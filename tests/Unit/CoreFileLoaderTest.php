@@ -2,10 +2,10 @@
 
 namespace Tests\Unit;
 
-use NixPHP\Support\CoreFileLoader;
-use Tests\NixPHPTestCase;
+use Naf\Support\CoreFileLoader;
+use Tests\NafTestCase;
 
-class CoreFileLoaderTest extends NixPHPTestCase
+class CoreFileLoaderTest extends NafTestCase
 {
     private const string LEGACY    = BASE_PATH . '/plugins/legacy-layout';
     private const string MODERN    = BASE_PATH . '/plugins/modern-layout';

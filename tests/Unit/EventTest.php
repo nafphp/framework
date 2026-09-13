@@ -4,11 +4,11 @@ namespace Tests\Unit;
 
 use Fixtures\Enums\CustomEvent;
 use Fixtures\Events\TestEventListener;
-use NixPHP\Core\EventManager;
+use Naf\Core\EventManager;
 use Nyholm\Psr7\Response;
-use Tests\NixPHPTestCase;
+use Tests\NafTestCase;
 
-class EventTest extends NixPHPTestCase
+class EventTest extends NafTestCase
 {
 
     public function testEventCallable()

@@ -1,10 +1,10 @@
 <?php
 declare(strict_types=1);
 
-namespace NixPHP\Decorators;
+namespace Naf\Decorators;
 
-use NixPHP\Exceptions\ContainerException;
-use NixPHP\Exceptions\ServiceNotFoundException;
+use Naf\Exceptions\ContainerException;
+use Naf\Exceptions\ServiceNotFoundException;
 use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\ContainerInterface;
 use ReflectionClass;

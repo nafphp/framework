@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace NixPHP\Support;
+namespace Naf\Support;
 
 use Psr\Http\Message\ServerRequestInterface;
 

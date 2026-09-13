@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace NixPHP\Support;
+namespace Naf\Support;
 
 class Cookie
 {

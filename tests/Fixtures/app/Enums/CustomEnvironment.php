@@ -2,7 +2,7 @@
 
 namespace Fixtures\Enums;
 
-use NixPHP\Core\Environment;
+use Naf\Core\Environment;
 
 class CustomEnvironment extends Environment
 {

@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace NixPHP\Exceptions;
+namespace Naf\Exceptions;
 
 class HttpException extends \Exception
 {

@@ -2,12 +2,12 @@
 
 namespace Tests\Unit;
 
-use NixPHP\Core\Log;
+use Naf\Core\Log;
 use Psr\Log\LoggerInterface;
-use Tests\NixPHPTestCase;
-use function NixPHP\app;
+use Tests\NafTestCase;
+use function Naf\app;
 
-class LogTest extends NixPHPTestCase
+class LogTest extends NafTestCase
 {
 
     private const TEST_LOG_FILE = '/tmp/log/test.log';
@@ -117,7 +117,7 @@ class LogTest extends NixPHPTestCase
         $log = new Log(static::TEST_LOG_FILE);
         app()->container()->set(LoggerInterface::class, $log);
 
-        \NixPHP\log()->debug('Helper Test');
+        \Naf\log()->debug('Helper Test');
         $this->assertStringContainsString('Helper Test', file_get_contents(static::TEST_LOG_FILE));
     }
     

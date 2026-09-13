@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace NixPHP\Core;
+namespace Naf\Core;
 
 /**
  * Configuration management class that handles array-based config with environment variable support

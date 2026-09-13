@@ -1,6 +1,6 @@
-# Contributing to NixPHP
+# Contributing to NAF
 
-Thanks for your interest in contributing to **NixPHP** – a lightweight PHP microframework built for simplicity and flexibility. 🙌
+Thanks for your interest in contributing to **NAF** – a lightweight PHP microframework built for simplicity and flexibility. 🙌
 
 Whether you're reporting a bug, suggesting a feature, or submitting a pull request — you're welcome here.
 
@@ -8,7 +8,7 @@ Whether you're reporting a bug, suggesting a feature, or submitting a pull reque
 
 ## 🧠 Philosophy
 
-NixPHPF follows a simple rule:
+NAF follows a simple rule:
 
 > **"As simple as possible, as flexible as necessary."**
 
@@ -20,7 +20,7 @@ We want to keep the core minimal, readable, and extensible — without adding un
 ## 💡 Suggestions & Issues
 
 If you have a feature idea or found a bug:
-- Open an issue in [GitHub Issues](https://github.com/nixphp/framework/issues)
+- Open an issue in [GitHub Issues](https://github.com/nafphp/framework/issues)
 - Be as specific as possible
 - Screenshots or code examples help a lot
 

@@ -4,9 +4,9 @@ namespace Tests;
 
 use PHPUnit\Framework\TestCase;
 
-use NixPHP\Support\Stopwatch;
+use Naf\Support\Stopwatch;
 
-class NixPHPTestCase extends TestCase
+class NafTestCase extends TestCase
 {
     protected function tearDown(): void
     {

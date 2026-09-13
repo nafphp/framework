@@ -2,12 +2,12 @@
 
 namespace Tests\Unit;
 
-use NixPHP\Core\Route;
-use NixPHP\Exceptions\RouteNotFoundException;
-use Tests\NixPHPTestCase;
-use function NixPHP\app;
+use Naf\Core\Route;
+use Naf\Exceptions\RouteNotFoundException;
+use Tests\NafTestCase;
+use function Naf\app;
 
-class RouteTest extends NixPHPTestCase
+class RouteTest extends NafTestCase
 {
 
     public function testShouldAddRoute()
@@ -75,9 +75,9 @@ class RouteTest extends NixPHPTestCase
 
     public function testHelperFunction()
     {
-        \NixPHP\route()->add('GET', '/test', function() { return 'test'; }, 'test');
+        \Naf\route()->add('GET', '/test', function() { return 'test'; }, 'test');
 
-        $this->assertSame('/test', \NixPHP\route('test'));
+        $this->assertSame('/test', \Naf\route('test'));
     }
 
 

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace NixPHP\Core;
+namespace Naf\Core;
 
-use NixPHP\Exceptions\RouteNotFoundException;
-use function NixPHP\event;
+use Naf\Exceptions\RouteNotFoundException;
+use function Naf\event;
 
 class Route
 {

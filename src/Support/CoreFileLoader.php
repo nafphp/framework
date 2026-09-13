@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace NixPHP\Support;
+namespace Naf\Support;
 
 /**
  * Resolves the conventional layout of an application root or an installed plugin.

@@ -2,18 +2,18 @@
 
 namespace Tests\Unit;
 
-use NixPHP\Core\App;
-use NixPHP\Core\Container;
-use NixPHP\Core\Dispatcher;
-use NixPHP\Core\Environment;
-use NixPHP\Support\Plugin;
-use NixPHP\Support\Stopwatch;
+use Naf\Core\App;
+use Naf\Core\Container;
+use Naf\Core\Dispatcher;
+use Naf\Core\Environment;
+use Naf\Support\Plugin;
+use Naf\Support\Stopwatch;
 use Psr\Http\Message\ServerRequestInterface;
 use ReflectionClass;
 use RuntimeException;
-use Tests\NixPHPTestCase;
+use Tests\NafTestCase;
 
-class AppTest extends NixPHPTestCase
+class AppTest extends NafTestCase
 {
     public function testHasPluginHonoursVersionConstraint()
     {
@@ -21,22 +21,22 @@ class AppTest extends NixPHPTestCase
         $reflection = new ReflectionClass($app);
 
         $pluginsProp = $reflection->getProperty('plugins');
-        $pluginInstance = new Plugin('nixphp/database');
+        $pluginInstance = new Plugin('naf/database');
         $pluginInstance->setVersion('0.1.2');
 
         $pluginsProp->setValue($app, [
-            'nixphp/database' => $pluginInstance,
+            'naf/database' => $pluginInstance,
         ]);
 
-        $this->assertTrue($app->hasPlugin('nixphp/database'));
+        $this->assertTrue($app->hasPlugin('naf/database'));
         try {
-            $this->assertTrue($app->hasPlugin('nixphp/database:0.1.2'));
-            $this->assertTrue($app->hasPlugin('nixphp/database:>=0.1.2'));
-            $this->assertTrue($app->hasPlugin('nixphp/database:>0.1.1'));
-            $this->assertTrue($app->hasPlugin('nixphp/database:<=0.1.2'));
-            $this->assertFalse($app->hasPlugin('nixphp/database:>0.1.2'));
-            $this->assertFalse($app->hasPlugin('nixphp/database:<0.1.2'));
-            $this->assertFalse($app->hasPlugin('nixphp/nonexistent:>=1.0.0'));
+            $this->assertTrue($app->hasPlugin('naf/database:0.1.2'));
+            $this->assertTrue($app->hasPlugin('naf/database:>=0.1.2'));
+            $this->assertTrue($app->hasPlugin('naf/database:>0.1.1'));
+            $this->assertTrue($app->hasPlugin('naf/database:<=0.1.2'));
+            $this->assertFalse($app->hasPlugin('naf/database:>0.1.2'));
+            $this->assertFalse($app->hasPlugin('naf/database:<0.1.2'));
+            $this->assertFalse($app->hasPlugin('naf/nonexistent:>=1.0.0'));
         } finally {
             Stopwatch::stop('app');
         }
@@ -49,7 +49,7 @@ class AppTest extends NixPHPTestCase
         $bootstrap = tempnam(sys_get_temp_dir(), 'plugin_');
         file_put_contents(
             $bootstrap,
-            '<?php $GLOBALS["seenDuringBoot"] = count(\NixPHP\app()->getPlugins());'
+            '<?php $GLOBALS["seenDuringBoot"] = count(\Naf\app()->getPlugins());'
         );
 
         $first = new Plugin('test/first');

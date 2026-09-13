@@ -5,14 +5,14 @@ namespace Tests\Unit;
 use Fixtures\Controllers\TestController;
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest;
-use NixPHP\Core\Dispatcher;
-use NixPHP\Core\Route;
-use NixPHP\Exceptions\DispatcherException;
-use NixPHP\Exceptions\RouteNotFoundException;
+use Naf\Core\Dispatcher;
+use Naf\Core\Route;
+use Naf\Exceptions\DispatcherException;
+use Naf\Exceptions\RouteNotFoundException;
 use Psr\Http\Message\ResponseInterface;
-use Tests\NixPHPTestCase;
+use Tests\NafTestCase;
 
-class DispatcherTest extends NixPHPTestCase
+class DispatcherTest extends NafTestCase
 {
     public function testDispatch()
     {

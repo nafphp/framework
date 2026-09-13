@@ -3,12 +3,12 @@
 namespace Tests\Unit;
 
 use Fixtures\Enums\CustomEnvironment;
-use NixPHP\Core\Environment;
-use Tests\NixPHPTestCase;
-use function NixPHP\app;
-use function NixPHP\env;
+use Naf\Core\Environment;
+use Tests\NafTestCase;
+use function Naf\app;
+use function Naf\env;
 
-class EnvironmentTest extends NixPHPTestCase
+class EnvironmentTest extends NafTestCase
 {
 
     public function testHelperFunction()

@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace NixPHP\Core;
+namespace Naf\Core;
 
 use Closure;
-use NixPHP\Exceptions\ContainerException;
-use NixPHP\Exceptions\ServiceNotFoundException;
+use Naf\Exceptions\ContainerException;
+use Naf\Exceptions\ServiceNotFoundException;
 use Psr\Container\ContainerInterface;
 
 class Container implements ContainerInterface

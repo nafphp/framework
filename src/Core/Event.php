@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace NixPHP\Core;
+namespace Naf\Core;
 
 /**
  * This class is meant to be extended by the user to define custom events, but it is not required.
