@@ -28,7 +28,9 @@ class Route
             throw new \LogicException('You can\'t add routes without a name when there is more than one route configured.');
         }
 
-        $this->routes[$name] = [
+        // An unnamed route is the sole route, and it is keyed by the empty string
+        // the way PHP used to coerce null to. Saying so is what PHP 8.5 wants.
+        $this->routes[$name ?? ''] = [
             'method' => $method,
             'path'   => $path,
             'action' => $action

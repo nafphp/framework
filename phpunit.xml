@@ -3,6 +3,7 @@
         colors="true"
         failOnRisky="true"
         failOnWarning="true"
+         failOnDeprecation="true"
         beStrictAboutTestsThatDoNotTestAnything="true"
         displayDetailsOnPhpunitDeprecations="true">
 

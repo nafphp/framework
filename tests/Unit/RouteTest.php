@@ -123,4 +123,15 @@ class RouteTest extends NafTestCase
         $this->expectException(RouteNotFoundException::class);
         $route->find('/search/anything-at-all', 'GET');
     }
+
+    public function testAnUnnamedRouteIsKeyedByAnEmptyString()
+    {
+        $route = new Route();
+        $route->add('GET', '/test', function() { return 'test'; });
+
+        $this->assertSame([''], array_keys($route->all()));
+
+        $route->find('/test', 'GET');
+        $this->assertSame('', $route->current());
+    }
 }
