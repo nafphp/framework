@@ -152,13 +152,7 @@ function json(mixed $data, int $status = 200, array $headers = []): ResponseInte
  */
 function redirect(string $url, int $status = 302): ResponseInterface
 {
-    return new Response(
-        $status,
-        ['Location' => $url],
-        null,
-        '2',
-        $status === 301 ? 'Moved permanently' : 'Found'
-    );
+    return response('', $status, ['Location' => $url]);
 }
 
 /**

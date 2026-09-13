@@ -45,6 +45,17 @@ class FunctionsTest extends NafTestCase
         $response = redirect('/test');
         $this->assertInstanceOf(ResponseInterface::class, $response);
         $this->assertSame(302, $response->getStatusCode());
+        $this->assertSame('1.1', $response->getProtocolVersion());
+        $this->assertSame('/test', $response->getHeaderLine('Location'));
+        $this->assertSame('', (string) $response->getBody());
+    }
+
+    public function testRedirectUsesTheReasonPhraseForItsStatus(): void
+    {
+        $response = redirect('/saved', 303);
+        $this->assertSame(303, $response->getStatusCode());
+        $this->assertSame('See Other', $response->getReasonPhrase());
+        $this->assertSame('1.1', $response->getProtocolVersion());
     }
 
     public function testRefresh()
@@ -54,6 +65,7 @@ class FunctionsTest extends NafTestCase
         $this->assertInstanceOf(ResponseInterface::class, $response);
         $this->assertSame(302, $response->getStatusCode());
         $this->assertSame('/test', $response->getHeaderLine('Location'));
+        $this->assertSame('1.1', $response->getProtocolVersion());
     }
 
     public function testAbort()
