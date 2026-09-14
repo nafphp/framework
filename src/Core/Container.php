@@ -24,7 +24,7 @@ class Container implements ContainerInterface
      */
     public function get(string $id)
     {
-        if (!isset($this->services[$id])) {
+        if (!array_key_exists($id, $this->services)) {
             throw new ServiceNotFoundException("Service '$id' not found.");
         }
 
@@ -32,7 +32,7 @@ class Container implements ContainerInterface
             try {
                 $this->services[$id] = call_user_func($this->services[$id], $this);
             } catch (\Throwable $e) {
-                throw new ContainerException($e->getMessage());
+                throw new ContainerException($e->getMessage(), 0, $e);
             }
         }
 
@@ -46,7 +46,7 @@ class Container implements ContainerInterface
 
     public function has(string $id): bool
     {
-        return isset($this->services[$id]);
+        return array_key_exists($id, $this->services);
     }
 
     public function reset(string $id): void

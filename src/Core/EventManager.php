@@ -53,7 +53,7 @@ class EventManager
             foreach ($this->listeners[$event] as $listener) {
                 $callback = $listener['callback'];
 
-                if (is_array($callback)) {
+                if (is_array($callback) && is_string($callback[0]) && !is_callable($callback)) {
                     [$class, $handle] = $callback;
                     $container = app()->container();
                     if ($container instanceof AutoResolvingContainer) {

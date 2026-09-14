@@ -49,7 +49,7 @@ class AutoResolvingContainer implements ContainerInterface
     public function get(string $id): mixed
     {
         // 1. Already instantiated in this decorator?
-        if (isset($this->instances[$id])) {
+        if (array_key_exists($id, $this->instances)) {
             return $this->instances[$id];
         }
 
@@ -90,7 +90,7 @@ class AutoResolvingContainer implements ContainerInterface
      */
     public function has(string $id): bool
     {
-        return isset($this->instances[$id]) || $this->container->has($id);
+        return array_key_exists($id, $this->instances) || $this->container->has($id);
     }
 
     /**

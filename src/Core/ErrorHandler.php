@@ -187,7 +187,7 @@ class ErrorHandler
             return false;
         }
 
-        return $environment !== Environment::PROD && $environment !== Environment::TEST;
+        return $environment === Environment::DEV;
     }
 
     private static function getEnvironment(): ?string

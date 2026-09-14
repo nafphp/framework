@@ -444,10 +444,10 @@ class App
         $this->guard()->register('safeOutput', function ($value) {
 
             if (is_array($value)) {
-                return array_map(fn($v) => htmlspecialchars($v, ENT_QUOTES, 'UTF-8'), $value);
+                return array_map(fn($v) => htmlspecialchars((string) ($v ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'), $value);
             }
 
-            return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+            return htmlspecialchars((string) ($value ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
         });
 

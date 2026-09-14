@@ -30,7 +30,7 @@ final class ResponseEmitter
         self::clearOutputBuffers();
 
         if (headers_sent()) {
-            echo $response->getBody();
+            self::writeBody($response);
             exit(0);
         }
 
@@ -45,7 +45,7 @@ final class ResponseEmitter
         // second, complete error page to the body the client is receiving.
         self::dispatchQuietly(Event::RESPONSE_BODY, $response);
 
-        echo $response->getBody();
+        self::writeBody($response);
 
         self::dispatchQuietly(Event::RESPONSE_END, $response);
 
@@ -84,9 +84,24 @@ final class ResponseEmitter
             self::writeHead($response);
         }
 
-        echo $response->getBody();
+        self::writeBody($response);
 
         exit(0);
+    }
+
+    private static function writeBody(ResponseInterface $response): void
+    {
+        $body = $response->getBody();
+        if ($body->isSeekable()) {
+            $body->rewind();
+        }
+        while (!$body->eof()) {
+            $chunk = $body->read(8192);
+            if ($chunk === '') {
+                break;
+            }
+            echo $chunk;
+        }
     }
 
     private static function writeHead(ResponseInterface $response): void
