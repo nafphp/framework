@@ -6,6 +6,7 @@ namespace Naf\Core;
 
 use Psr\Http\Message\ResponseInterface;
 use Throwable;
+
 use function Naf\event;
 use function Naf\log;
 
@@ -18,7 +19,6 @@ use function Naf\log;
  */
 final class ResponseEmitter
 {
-
     /**
      * Emit a response and run the RESPONSE_HEADER, RESPONSE_BODY and
      * RESPONSE_END events
@@ -106,12 +106,14 @@ final class ResponseEmitter
 
     private static function writeHead(ResponseInterface $response): void
     {
-        header(sprintf(
-            'HTTP/%s %d %s',
-            $response->getProtocolVersion(),
-            $response->getStatusCode(),
-            $response->getReasonPhrase()
-        ));
+        header(
+            sprintf(
+                'HTTP/%s %d %s',
+                $response->getProtocolVersion(),
+                $response->getStatusCode(),
+                $response->getReasonPhrase(),
+            ),
+        );
 
         foreach ($response->getHeaders() as $name => $values) {
             foreach ($values as $value) {
@@ -132,5 +134,4 @@ final class ResponseEmitter
             ob_end_clean();
         }
     }
-
 }

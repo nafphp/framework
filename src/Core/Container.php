@@ -8,6 +8,7 @@ use Closure;
 use Naf\Exceptions\ContainerException;
 use Naf\Exceptions\ServiceNotFoundException;
 use Psr\Container\ContainerInterface;
+use Throwable;
 
 class Container implements ContainerInterface
 {
@@ -31,7 +32,7 @@ class Container implements ContainerInterface
         if ($this->services[$id] instanceof Closure) {
             try {
                 $this->services[$id] = call_user_func($this->services[$id], $this);
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 throw new ContainerException($e->getMessage(), 0, $e);
             }
         }
@@ -53,5 +54,4 @@ class Container implements ContainerInterface
     {
         unset($this->services[$id]);
     }
-
 }
