@@ -39,3 +39,10 @@ composer require naf/framework
 ## License
 
 MIT.
+
+
+## Unreleased Nafinity integration candidate
+
+Target branch: `v0.2.4-rc`. This behavior is not a published release yet.
+
+Null service results remain registered and cached; object/static event callables retain their supplied target. Detailed error output requires explicit dev mode. HTTP responses stream seekable bodies in bounded chunks. View escaping accepts null as empty text and substitutes malformed UTF-8.

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Naf\Decorators;
@@ -23,16 +24,16 @@ use ReflectionParameter;
  */
 class AutoResolvingContainer implements ContainerInterface
 {
-    private array $instances = [];
-    private array $building = [];
+    private array $instances       = [];
+    private array $building        = [];
     private array $reflectionCache = [];
 
     /**
      * @param ContainerInterface $container The base container to decorate
      */
-    public function __construct(
-        private readonly ContainerInterface $container
-    ) {}
+    public function __construct(private readonly ContainerInterface $container)
+    {
+    }
 
     /**
      * Retrieves a service from the container (always singleton)
@@ -49,7 +50,7 @@ class AutoResolvingContainer implements ContainerInterface
     public function get(string $id): mixed
     {
         // 1. Already instantiated in this decorator?
-        if (isset($this->instances[$id])) {
+        if (array_key_exists($id, $this->instances)) {
             return $this->instances[$id];
         }
 
@@ -90,7 +91,7 @@ class AutoResolvingContainer implements ContainerInterface
      */
     public function has(string $id): bool
     {
-        return isset($this->instances[$id]) || $this->container->has($id);
+        return array_key_exists($id, $this->instances) || $this->container->has($id);
     }
 
     /**
@@ -129,7 +130,9 @@ class AutoResolvingContainer implements ContainerInterface
         // Circular dependency detection
         if (isset($this->building[$className])) {
             throw new ContainerException(
-                "Circular dependency detected: " . implode(' -> ', array_keys($this->building)) . " -> $className"
+                'Circular dependency detected: '
+                    . implode(' -> ', array_keys($this->building))
+                    . " -> $className",
             );
         }
 
@@ -148,7 +151,11 @@ class AutoResolvingContainer implements ContainerInterface
             if ($constructor === null || $constructor->getNumberOfParameters() === 0) {
                 $instance = $reflection->newInstance();
             } else {
-                $args = $this->resolveParameters($constructor->getParameters(), $className, $parameters);
+                $args = $this->resolveParameters(
+                    $constructor->getParameters(),
+                    $className,
+                    $parameters,
+                );
                 $instance = $reflection->newInstanceArgs($args);
             }
 
@@ -195,8 +202,11 @@ class AutoResolvingContainer implements ContainerInterface
      * @throws ContainerException
      * @throws ServiceNotFoundException|ContainerExceptionInterface
      */
-    private function resolveParameters(array $parameters, string $context, array $explicitParams = []): array
-    {
+    private function resolveParameters(
+        array $parameters,
+        string $context,
+        array $explicitParams = [],
+    ): array {
         $args = [];
 
         foreach ($parameters as $index => $param) {
@@ -218,7 +228,7 @@ class AutoResolvingContainer implements ContainerInterface
             $type = $param->getType();
 
             // Scalar/builtin type without explicit value
-            if (!$type instanceof ReflectionNamedType || $type->isBuiltin()) {
+            if (!($type instanceof ReflectionNamedType) || $type->isBuiltin()) {
                 $args[] = $this->resolveScalarParameter($param, $context, $explicitParams);
                 continue;
             }
@@ -242,10 +252,10 @@ class AutoResolvingContainer implements ContainerInterface
                 }
 
                 throw new ServiceNotFoundException(
-                    "Cannot resolve dependency '$dependencyId' for parameter '\${$param->getName()}' in '$context'. " .
-                    "Make sure the service is registered in the container or that it's a concrete class.",
+                    "Cannot resolve dependency '$dependencyId' for parameter '\${$param->getName()}' in '$context'. "
+                        . "Make sure the service is registered in the container or that it's a concrete class.",
                     0,
-                    $e
+                    $e,
                 );
             }
         }
@@ -267,6 +277,7 @@ class AutoResolvingContainer implements ContainerInterface
 
         try {
             $reflection = $this->reflect($className);
+
             return $reflection->isInstantiable();
         } catch (ContainerException) {
             return false;
@@ -282,8 +293,11 @@ class AutoResolvingContainer implements ContainerInterface
      *
      * @return mixed Parameter value (default value or null)
      */
-    private function resolveScalarParameter(ReflectionParameter $param, string $context, array $explicitParams = []): mixed
-    {
+    private function resolveScalarParameter(
+        ReflectionParameter $param,
+        string $context,
+        array $explicitParams = [],
+    ): mixed {
         if ($param->isDefaultValueAvailable()) {
             return $param->getDefaultValue();
         }
@@ -316,8 +330,8 @@ class AutoResolvingContainer implements ContainerInterface
             sprintf(
                 "Cannot autowire parameter '\$%s' in '%s' (no class type and no default value).",
                 $param->getName(),
-                $context
-            )
+                $context,
+            ),
         );
     }
 }

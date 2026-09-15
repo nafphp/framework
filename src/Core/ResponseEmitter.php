@@ -6,6 +6,7 @@ namespace Naf\Core;
 
 use Psr\Http\Message\ResponseInterface;
 use Throwable;
+
 use function Naf\event;
 use function Naf\log;
 
@@ -18,7 +19,6 @@ use function Naf\log;
  */
 final class ResponseEmitter
 {
-
     /**
      * Emit a response and run the RESPONSE_HEADER, RESPONSE_BODY and
      * RESPONSE_END events
@@ -30,7 +30,7 @@ final class ResponseEmitter
         self::clearOutputBuffers();
 
         if (headers_sent()) {
-            echo $response->getBody();
+            self::writeBody($response);
             exit(0);
         }
 
@@ -45,7 +45,7 @@ final class ResponseEmitter
         // second, complete error page to the body the client is receiving.
         self::dispatchQuietly(Event::RESPONSE_BODY, $response);
 
-        echo $response->getBody();
+        self::writeBody($response);
 
         self::dispatchQuietly(Event::RESPONSE_END, $response);
 
@@ -84,19 +84,36 @@ final class ResponseEmitter
             self::writeHead($response);
         }
 
-        echo $response->getBody();
+        self::writeBody($response);
 
         exit(0);
     }
 
+    private static function writeBody(ResponseInterface $response): void
+    {
+        $body = $response->getBody();
+        if ($body->isSeekable()) {
+            $body->rewind();
+        }
+        while (!$body->eof()) {
+            $chunk = $body->read(8192);
+            if ($chunk === '') {
+                break;
+            }
+            echo $chunk;
+        }
+    }
+
     private static function writeHead(ResponseInterface $response): void
     {
-        header(sprintf(
-            'HTTP/%s %d %s',
-            $response->getProtocolVersion(),
-            $response->getStatusCode(),
-            $response->getReasonPhrase()
-        ));
+        header(
+            sprintf(
+                'HTTP/%s %d %s',
+                $response->getProtocolVersion(),
+                $response->getStatusCode(),
+                $response->getReasonPhrase(),
+            ),
+        );
 
         foreach ($response->getHeaders() as $name => $values) {
             foreach ($values as $value) {
@@ -117,5 +134,4 @@ final class ResponseEmitter
             ob_end_clean();
         }
     }
-
 }

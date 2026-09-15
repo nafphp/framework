@@ -6,6 +6,7 @@ namespace Naf\Core;
 
 use Naf\Decorators\AutoResolvingContainer;
 use Psr\Http\Message\ResponseInterface;
+
 use function Naf\app;
 
 class EventManager
@@ -28,10 +29,7 @@ class EventManager
             'priority' => $priority,
         ];
 
-        usort(
-            $this->listeners[$event],
-            fn ($a, $b) => $b['priority'] <=> $a['priority']
-        );
+        usort($this->listeners[$event], fn($a, $b) => $b['priority'] <=> $a['priority']);
 
         return $this;
     }
@@ -49,13 +47,12 @@ class EventManager
         $responses = [];
 
         if (!empty($this->listeners[$event])) {
-
             foreach ($this->listeners[$event] as $listener) {
                 $callback = $listener['callback'];
 
-                if (is_array($callback)) {
+                if (is_array($callback) && is_string($callback[0]) && !is_callable($callback)) {
                     [$class, $handle] = $callback;
-                    $container = app()->container();
+                    $container        = app()->container();
                     if ($container instanceof AutoResolvingContainer) {
                         $obj = $container->make($class);
                     } else {
@@ -88,7 +85,7 @@ class EventManager
     {
         $responses = array_filter(
             $this->dispatch($event, ...$payload),
-            static fn(mixed $response) => $response instanceof ResponseInterface
+            static fn(mixed $response) => $response instanceof ResponseInterface,
         );
 
         return empty($responses) ? null : end($responses);
