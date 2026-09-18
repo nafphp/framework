@@ -40,6 +40,32 @@ class Route
     }
 
     /**
+     * Removes a named route.
+     *
+     * Registering a route under an existing name replaces it, so replacing is
+     * already possible; removing is what was missing. The name is the identity,
+     * and an unknown name is simply false rather than an error.
+     *
+     * @param string $name
+     *
+     * @return bool True when a route was removed
+     */
+    public function remove(string $name): bool
+    {
+        if (!array_key_exists($name, $this->routes)) {
+            return false;
+        }
+
+        unset($this->routes[$name]);
+
+        if ($this->currentName === $name) {
+            $this->currentName = null;
+        }
+
+        return true;
+    }
+
+    /**
      * Finds a route matching the given URI and method.
      *
      * @param string $uri
