@@ -3,6 +3,10 @@
 namespace Tests\Unit;
 
 use Fixtures\Controllers\TestController;
+use Naf\Core\App;
+use Naf\Core\Container;
+use Naf\Decorators\AutoResolvingContainer;
+use Naf\Support\AppHolder;
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest;
 use Naf\Core\Dispatcher;
@@ -376,5 +380,82 @@ class DispatcherTest extends NafTestCase
         $response = $dispatcher->forward($request);
 
         $this->assertStringContainsString('ID: 0', $response->getBody()->getContents());
+    }
+
+    public function testABoundControllerClassIsDispatchedInsteadOfANewInstance()
+    {
+        $replacement = new class extends TestController {
+            public function testResponse(): Response
+            {
+                return new Response(200, [], 'replaced');
+            }
+        };
+
+        $this->withContainer(function (AutoResolvingContainer $container) use ($replacement) {
+            $container->set(TestController::class, $replacement);
+
+            $route = new Route();
+            $route->add('GET', '/test', [TestController::class, 'testResponse']);
+
+            $response = (new Dispatcher($route))->forward(new ServerRequest('GET', '/test'));
+
+            $this->assertSame('replaced', (string) $response->getBody());
+        });
+    }
+
+    public function testAnUnboundControllerClassIsStillBuiltByTheContainer()
+    {
+        $this->withContainer(function () {
+            $route = new Route();
+            $route->add('GET', '/test', [TestController::class, 'testResponse']);
+
+            $response = (new Dispatcher($route))->forward(new ServerRequest('GET', '/test'));
+
+            $this->assertSame('test', (string) $response->getBody());
+        });
+    }
+
+    public function testAFailingControllerFactoryIsVisible()
+    {
+        $this->withContainer(function (AutoResolvingContainer $container) {
+            $container->set(TestController::class, function () {
+                throw new \RuntimeException('factory exploded');
+            });
+
+            $route = new Route();
+            $route->add('GET', '/test', [TestController::class, 'testResponse']);
+
+            $this->expectExceptionMessage('factory exploded');
+            (new Dispatcher($route))->forward(new ServerRequest('GET', '/test'));
+        });
+    }
+
+    public function testABoundControllerWithoutTheActionIsReported()
+    {
+        $this->withContainer(function (AutoResolvingContainer $container) {
+            $container->set(TestController::class, new \stdClass());
+
+            $route = new Route();
+            $route->add('GET', '/test', [TestController::class, 'testResponse']);
+
+            $this->expectException(DispatcherException::class);
+            (new Dispatcher($route))->forward(new ServerRequest('GET', '/test'));
+        });
+    }
+
+    /**
+     * Run a check against a fresh application container and restore the previous one.
+     */
+    private function withContainer(callable $check): void
+    {
+        $previous = AppHolder::get();
+        $container = new AutoResolvingContainer(new Container());
+
+        try {
+            new App($container);
+            $check($container);
+        } finally {
+            AppHolder::set($previous);
+        }
     }
 }

@@ -8,6 +8,7 @@ use Closure;
 use Naf\Exceptions\ContainerException;
 use Naf\Exceptions\ServiceNotFoundException;
 use Psr\Container\ContainerInterface;
+use Throwable;
 
 class Container implements ContainerInterface
 {
@@ -24,15 +25,15 @@ class Container implements ContainerInterface
      */
     public function get(string $id)
     {
-        if (!isset($this->services[$id])) {
+        if (!array_key_exists($id, $this->services)) {
             throw new ServiceNotFoundException("Service '$id' not found.");
         }
 
         if ($this->services[$id] instanceof Closure) {
             try {
                 $this->services[$id] = call_user_func($this->services[$id], $this);
-            } catch (\Throwable $e) {
-                throw new ContainerException($e->getMessage());
+            } catch (Throwable $e) {
+                throw new ContainerException($e->getMessage(), 0, $e);
             }
         }
 
@@ -46,12 +47,11 @@ class Container implements ContainerInterface
 
     public function has(string $id): bool
     {
-        return isset($this->services[$id]);
+        return array_key_exists($id, $this->services);
     }
 
     public function reset(string $id): void
     {
         unset($this->services[$id]);
     }
-
 }

@@ -6,16 +6,16 @@ namespace Naf\Core;
 
 use ErrorException;
 use Psr\Http\Message\ResponseInterface;
-use function Naf\simple_view;
+use Throwable;
+
 use function Naf\response;
+use function Naf\simple_view;
 
 class ErrorHandler
 {
-
-    private const string DEFAULT_TEMPLATE = __DIR__ . '/../Resources/views/errors/default.phtml';
+    private const string DEFAULT_TEMPLATE   = __DIR__ . '/../Resources/views/errors/default.phtml';
     private const string SANITIZED_TEMPLATE = __DIR__ . '/../Resources/views/errors/minimal.phtml';
     private static bool $shutdownRegistered = false;
-
 
     /**
      * Handles uncaught exceptions by rendering an error view
@@ -23,11 +23,11 @@ class ErrorHandler
      * Sanitizes exception details and renders them using the error view template,
      * then sends the response with HTTP 500 status code
      *
-     * @param \Throwable $e The uncaught exception to handle
+     * @param Throwable $e The uncaught exception to handle
      *
      * @return void
      */
-    public static function handleException(\Throwable $e): void
+    public static function handleException(Throwable $e): void
     {
         if (PHP_SAPI === 'cli') {
             self::renderConsole($e);
@@ -45,20 +45,20 @@ class ErrorHandler
      * operator running the command, not a visitor. The stack trace follows the
      * same rule as the HTTP output and stays hidden outside development.
      *
-     * @param \Throwable $e The uncaught exception to report
+     * @param Throwable $e The uncaught exception to report
      */
-    private static function renderConsole(\Throwable $e): never
+    private static function renderConsole(Throwable $e): never
     {
         ResponseEmitter::clearOutputBuffers();
 
         $report = sprintf(
-            "%s: %s%sin %s:%d%s",
+            '%s: %s%sin %s:%d%s',
             $e::class,
             $e->getMessage(),
             PHP_EOL,
             $e->getFile(),
             $e->getLine(),
-            PHP_EOL
+            PHP_EOL,
         );
 
         if (self::shouldRenderDetailedView()) {
@@ -70,11 +70,9 @@ class ErrorHandler
         exit(1);
     }
 
-    public static function resolveStatusCode(\Throwable $exception): int
+    public static function resolveStatusCode(Throwable $exception): int
     {
-        return method_exists($exception, 'getStatusCode')
-            ? $exception->getStatusCode()
-            : 500;
+        return method_exists($exception, 'getStatusCode') ? $exception->getStatusCode() : 500;
     }
 
     public static function register(): void
@@ -113,12 +111,12 @@ class ErrorHandler
             0,
             $error['type'],
             $error['file'],
-            $error['line']
+            $error['line'],
         );
 
         try {
             self::handleException($exception);
-        } catch (\Throwable $shutdownException) {
+        } catch (Throwable $shutdownException) {
             self::sendShutdownFallback($shutdownException);
         }
     }
@@ -128,33 +126,30 @@ class ErrorHandler
      *
      * The detailed template is only rendered for non-production/test environments.
      *
-     * @param \Throwable $exception
+     * @param Throwable $exception
      * @param int        $statusCode
      * @param string|null $template
      *
      * @return ResponseInterface
      * @internal Keep this logic tied to the framework error handling contract to avoid leaking sensitive information.
      */
-    public static function renderResponse(\Throwable $exception, int $statusCode, ?string $template = null): ResponseInterface
-    {
+    public static function renderResponse(
+        Throwable $exception,
+        int $statusCode,
+        ?string $template = null,
+    ): ResponseInterface {
         if (!self::shouldRenderDetailedView()) {
             return response(
-                simple_view(
-                    self::SANITIZED_TEMPLATE,
-                    self::buildSanitizedViewData($statusCode)
-                ),
-                $statusCode
+                simple_view(self::SANITIZED_TEMPLATE, self::buildSanitizedViewData($statusCode)),
+                $statusCode,
             );
         }
 
         $template = $template ?? self::DEFAULT_TEMPLATE;
 
         return response(
-            simple_view(
-                $template,
-                self::buildViewData($exception, $statusCode)
-            ),
-            $statusCode
+            simple_view($template, self::buildViewData($exception, $statusCode)),
+            $statusCode,
         );
     }
 
@@ -169,8 +164,12 @@ class ErrorHandler
      * @return bool False when the error was silenced via @, otherwise never returns because it throws.
      * @throws ErrorException Always throws the error as an exception when not suppressed.
      */
-    public static function handleError(int $errno, string $errstr, string $errfile, int $errline): bool
-    {
+    public static function handleError(
+        int $errno,
+        string $errstr,
+        string $errfile,
+        int $errline,
+    ): bool {
         if ((error_reporting() & $errno) === 0) {
             return false;
         }
@@ -184,10 +183,11 @@ class ErrorHandler
 
         if ($environment === null) {
             self::logMissingEnvironmentWarning();
+
             return false;
         }
 
-        return $environment !== Environment::PROD && $environment !== Environment::TEST;
+        return $environment === Environment::DEV;
     }
 
     private static function getEnvironment(): ?string
@@ -197,6 +197,7 @@ class ErrorHandler
         }
 
         $value = getenv('APP_ENV');
+
         return $value === false ? null : $value;
     }
 
@@ -213,8 +214,9 @@ class ErrorHandler
         if (function_exists('Naf\\log')) {
             try {
                 \Naf\log()->warning('APP_ENV is not set; defaulting to sanitized error output.');
+
                 return;
-            } catch (\Throwable) {
+            } catch (Throwable) {
             }
         }
 
@@ -228,16 +230,19 @@ class ErrorHandler
         ];
     }
 
-    private static function buildViewData(\Throwable $exception, int $statusCode): array
+    private static function buildViewData(Throwable $exception, int $statusCode): array
     {
         return [
             'statusCode'       => $statusCode,
             'message'          => $exception->getMessage(),
             'exceptionFile'    => $exception->getFile(),
             'exceptionLine'    => $exception->getLine(),
-            'exceptionSnippet' => self::getCodeSnippet($exception->getFile(), $exception->getLine()),
-            'frames'           => self::buildStackFrames($exception->getTrace()),
-            'basePath'         => self::resolveBasePath(),
+            'exceptionSnippet' => self::getCodeSnippet(
+                $exception->getFile(),
+                $exception->getLine(),
+            ),
+            'frames'   => self::buildStackFrames($exception->getTrace()),
+            'basePath' => self::resolveBasePath(),
         ];
     }
 
@@ -248,7 +253,7 @@ class ErrorHandler
 
     private static function hydrateFrame(array $frame): array
     {
-        $line = isset($frame['line']) ? (int)$frame['line'] : null;
+        $line = isset($frame['line']) ? (int) $frame['line'] : null;
         $file = $frame['file'] ?? null;
 
         return [
@@ -286,8 +291,8 @@ class ErrorHandler
         }
 
         $totalLines = count($lines);
-        $start = max(0, $line - $padding - 1);
-        $end   = min($totalLines - 1, $line + $padding - 1);
+        $start      = max(0, $line - $padding - 1);
+        $end        = min($totalLines - 1, $line + $padding - 1);
 
         $snippet = [];
 
@@ -308,10 +313,11 @@ class ErrorHandler
         }
 
         $path = realpath(\NAF_BASE_PATH);
+
         return $path ?: null;
     }
 
-    private static function sendShutdownFallback(\Throwable $exception): void
+    private static function sendShutdownFallback(Throwable $exception): void
     {
         // Whatever was buffered belongs to the request that just died; keep it
         // from being flushed in front of the fallback output.
@@ -321,7 +327,12 @@ class ErrorHandler
 
         if (PHP_SAPI === 'cli') {
             fwrite(STDERR, 'A fatal error occurred during shutdown.' . PHP_EOL);
-            fwrite(STDERR, ($showDetails ? $exception->getMessage() : 'An unexpected internal error occurred.') . PHP_EOL);
+            fwrite(
+                STDERR,
+                ($showDetails
+                    ? $exception->getMessage()
+                    : 'An unexpected internal error occurred.') . PHP_EOL,
+            );
             exit(1);
         }
 
@@ -342,5 +353,4 @@ class ErrorHandler
 
         exit(1);
     }
-
 }

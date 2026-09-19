@@ -74,9 +74,20 @@ class Dispatcher
             [$class, $classAction] = $action;
             $container = app()->container();
 
-            $controller = $container instanceof AutoResolvingContainer
-                ? $container->make($class)
-                : new $class();
+            // A bound target class is the one the application wants to run, so
+            // prefer it over building the class named in the route. Everything
+            // that is not bound keeps building exactly as before.
+            $controller = $container->has($class)
+                ? $container->get($class)
+                : ($container instanceof AutoResolvingContainer
+                    ? $container->make($class)
+                    : new $class());
+
+            if (!is_object($controller) || !is_callable([$controller, $classAction])) {
+                throw new DispatcherException(
+                    sprintf('Controller %s has no callable action %s.', $class, $classAction)
+                );
+            }
 
             event()->dispatch(Event::CONTROLLER_CALLING, $request, $controller, $action);
             $response = $controller->$classAction(...$route['params'] ?? null);

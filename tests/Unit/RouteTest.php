@@ -134,4 +134,38 @@ class RouteTest extends NafTestCase
         $route->find('/test', 'GET');
         $this->assertSame('', $route->current());
     }
+
+    public function testRemovingANamedRouteTakesItOutOfMatching()
+    {
+        $route = new Route();
+        $route->add('GET', '/kept', function() { return 'kept'; }, 'kept');
+        $route->add('GET', '/dropped', function() { return 'dropped'; }, 'dropped');
+
+        $this->assertTrue($route->remove('dropped'));
+        $this->assertSame(['kept'], array_keys($route->all()));
+        $this->assertIsArray($route->find('/kept', 'GET'));
+
+        $this->expectException(RouteNotFoundException::class);
+        $route->find('/dropped', 'GET');
+    }
+
+    public function testRemovingAnUnknownRouteIsFalseAndChangesNothing()
+    {
+        $route = new Route();
+        $route->add('GET', '/kept', function() { return 'kept'; }, 'kept');
+
+        $this->assertFalse($route->remove('never-registered'));
+        $this->assertSame(['kept'], array_keys($route->all()));
+    }
+
+    public function testRemovingTheCurrentRouteForgetsIt()
+    {
+        $route = new Route();
+        $route->add('GET', '/kept', function() { return 'kept'; }, 'kept');
+        $route->find('/kept', 'GET');
+
+        $this->assertSame('kept', $route->current());
+        $this->assertTrue($route->remove('kept'));
+        $this->assertNull($route->current());
+    }
 }

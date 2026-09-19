@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Naf\Core;
 
 use Composer\InstalledVersions;
+use InvalidArgumentException;
 use Naf\Support\AppHolder;
 use Naf\Support\CoreFileLoader;
 use Naf\Support\Guard;
@@ -13,12 +14,14 @@ use Naf\Support\RequestParameter;
 use Naf\Support\Stopwatch;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7Server\ServerRequestCreator;
+use OutOfBoundsException;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Log\LoggerInterface;
 use Throwable;
+
 use function Naf\event;
 use function Naf\log;
 
@@ -47,7 +50,9 @@ class App
      */
     public function run(): void
     {
-        if (PHP_SAPI === 'cli') return;
+        if (PHP_SAPI === 'cli') {
+            return;
+        }
 
         try {
             $request = $this->createServerRequest();
@@ -68,7 +73,7 @@ class App
     {
         $this->container()->set(RequestInterface::class, $request);
         $this->container()->set(ServerRequestInterface::class, $request);
-        $this->container()->set(RequestParameter::class, function(ContainerInterface $container) {
+        $this->container()->set(RequestParameter::class, function (ContainerInterface $container) {
             return new RequestParameter($container->get(ServerRequestInterface::class));
         });
     }
@@ -82,16 +87,19 @@ class App
                 return $exceptionResponse;
             }
         } catch (Throwable $listenerException) {
-            log()->error(sprintf(
-                'Exception listener failed while handling %s: %s',
-                $e::class,
-                $listenerException->getMessage()
-            ));
+            log()->error(
+                sprintf(
+                    'Exception listener failed while handling %s: %s',
+                    $e::class,
+                    $listenerException->getMessage(),
+                ),
+            );
         }
 
         log()->error($e->getMessage());
 
         $statusCode = ErrorHandler::resolveStatusCode($e);
+
         return ErrorHandler::renderResponse($e, $statusCode);
     }
 
@@ -159,7 +167,7 @@ class App
         [$package] = Plugin::splitRequirement($name);
 
         if (!$this->hasPlugin($name)) {
-            throw new \InvalidArgumentException('Plugin not found: ' . $name);
+            throw new InvalidArgumentException('Plugin not found: ' . $name);
         }
 
         return $this->plugins[$package];
@@ -172,15 +180,22 @@ class App
      */
     public function collectPluginResources(string $resource): array
     {
-        if (!in_array($resource, ['configPaths', 'viewPaths', 'routeFiles', 'functionsFiles', 'viewHelpersFiles'])) {
-            throw new \InvalidArgumentException('Invalid plugin property type: ' . $resource);
+        if (
+            !in_array($resource, [
+                'configPaths',
+                'viewPaths',
+                'routeFiles',
+                'functionsFiles',
+                'viewHelpersFiles',
+            ])
+        ) {
+            throw new InvalidArgumentException('Invalid plugin property type: ' . $resource);
         }
 
         $result = [];
         $getter = 'get' . ucfirst($resource);
 
         foreach ($this->getPlugins() as $plugin) {
-
             $resp = $plugin->$getter();
 
             if (is_array($resp)) {
@@ -189,7 +204,6 @@ class App
             }
 
             $result[] = $resp;
-
         }
 
         return $result;
@@ -200,7 +214,7 @@ class App
      *
      * @return string|null The base path or null if not defined
      */
-    public function getBasePath():? string
+    public function getBasePath(): ?string
     {
         if (!defined('\BASE_PATH')) {
             return null;
@@ -214,7 +228,7 @@ class App
      *
      * @return string|null The core base path or null if not defined
      */
-    private function getCoreBasePath():? string
+    private function getCoreBasePath(): ?string
     {
         if (!defined('\NAF_BASE_PATH')) {
             return null;
@@ -236,7 +250,9 @@ class App
         $this->loadServices();
         $this->loadPlugins();
         $this->loadRoutes();
-        if (PHP_SAPI !== 'cli') $this->loadGuards();
+        if (PHP_SAPI !== 'cli') {
+            $this->loadGuards();
+        }
     }
 
     /**
@@ -246,11 +262,14 @@ class App
      */
     private function loadEnv(string $path = '/.env'): void
     {
-        if (!file_exists($path)) return;
+        if (!file_exists($path)) {
+            return;
+        }
 
         foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
-
-            if (str_starts_with(trim($line), '#')) continue;
+            if (str_starts_with(trim($line), '#')) {
+                continue;
+            }
 
             [$key, $value] = explode('=', $line, 2);
 
@@ -261,7 +280,6 @@ class App
                 $_ENV[$key] = $value;
                 putenv("$key=$value");
             }
-
         }
     }
 
@@ -279,12 +297,14 @@ class App
 
         $this->container->set(Route::class, fn() => new Route());
 
-        $this->container->set(Dispatcher::class, fn($container) => new Dispatcher($container->get(Route::class)));
+        $this->container->set(
+            Dispatcher::class,
+            fn($container) => new Dispatcher($container->get(Route::class)),
+        );
 
         $this->container->set(EventManager::class, fn() => new EventManager());
 
-        $this->container->set(Config::class, function() use ($appConfigFile, $coreDir) {
-
+        $this->container->set(Config::class, function () use ($appConfigFile, $coreDir) {
             $appConfig  = self::requireConfig($appConfigFile);
             $coreConfig = self::requireConfig($coreDir . '/config.php');
 
@@ -299,11 +319,9 @@ class App
             $merged = array_replace_recursive($coreConfig, $pluginConfig, $appConfig);
 
             return new Config($merged);
-
         });
 
-        $this->container->set(LoggerInterface::class, function() {
-
+        $this->container->set(LoggerInterface::class, function () {
             $logFile   = $this->getBasePath() . '/logs/app.log';
             $directory = dirname($logFile);
 
@@ -317,9 +335,7 @@ class App
             }
 
             return new Log($logFile);
-
         });
-
     }
 
     /**
@@ -328,7 +344,9 @@ class App
     private function loadRoutes(): void
     {
         $routes = CoreFileLoader::file($this->getBasePath(), CoreFileLoader::ROUTE_FILES);
-        if ($routes !== null) require_once $routes;
+        if ($routes !== null) {
+            require_once $routes;
+        }
     }
 
     /**
@@ -359,17 +377,20 @@ class App
     private function loadPlugins(): void
     {
         // Try to load configuration order from userspace
-        $orderedPackages = [];
-        $pluginConfigPath = CoreFileLoader::file($this->getBasePath(), CoreFileLoader::PLUGIN_FILES);
+        $orderedPackages  = [];
+        $pluginConfigPath = CoreFileLoader::file(
+            $this->getBasePath(),
+            CoreFileLoader::PLUGIN_FILES,
+        );
 
         if ($pluginConfigPath !== null) {
-            $configured = require $pluginConfigPath;
+            $configured      = require $pluginConfigPath;
             $orderedPackages = is_array($configured) ? $configured : [];
         }
 
         $allPackages = array_unique(InstalledVersions::getInstalledPackagesByType('naf-plugin'));
-        $ordered = array_filter($orderedPackages, fn($name) => in_array($name, $allPackages));
-        $remaining = array_diff($allPackages, $ordered);
+        $ordered     = array_filter($orderedPackages, fn($name) => in_array($name, $allPackages));
+        $remaining   = array_diff($allPackages, $ordered);
 
         $finalOrder = array_merge($ordered, $remaining);
 
@@ -378,20 +399,19 @@ class App
         // itself on first access: if the registry were still filling up at
         // that point, the config of every plugin after it would be lost.
         foreach ($finalOrder as $package) {
-
             $path = InstalledVersions::getInstallPath($package);
 
-            if (!$path) continue;
+            if (!$path) {
+                continue;
+            }
 
             $plugin = CoreFileLoader::createPlugin($package, $path);
             $plugin->setVersion($this->resolvePluginVersion($package));
 
             $this->plugins[$package] = $plugin;
-
         }
 
         $this->bootPlugins();
-
     }
 
     /**
@@ -410,8 +430,9 @@ class App
     private function resolvePluginVersion(string $package): ?string
     {
         try {
-            $version = InstalledVersions::getPrettyVersion($package) ?? InstalledVersions::getVersion($package);
-        } catch (\OutOfBoundsException) {
+            $version = InstalledVersions::getPrettyVersion($package)
+                ?? InstalledVersions::getVersion($package);
+        } catch (OutOfBoundsException) {
             return null;
         }
 
@@ -426,59 +447,64 @@ class App
         $config = $this->container->get(Config::class);
 
         $this->guard()->register('safePath', function ($path) {
-
             if (
-                $path === '' ||
-                str_contains($path, '..') ||
-                str_starts_with($path, '/') ||
-                str_contains($path, '://') ||
-                !preg_match('/^[A-Za-z0-9_\/.-]+$/', $path)
+                $path === ''
+                || str_contains($path, '..')
+                || str_starts_with($path, '/')
+                || str_contains($path, '://')
+                || !preg_match('/^[A-Za-z0-9_\/.-]+$/', $path)
             ) {
-                throw new \InvalidArgumentException('Insecure path detected! Navigation outside of application root is not allowed.');
+                throw new InvalidArgumentException(
+                    'Insecure path detected! Navigation outside of application root is not allowed.',
+                );
             }
 
             return $path;
-
         });
 
         $this->guard()->register('safeOutput', function ($value) {
-
             if (is_array($value)) {
-                return array_map(fn($v) => htmlspecialchars($v, ENT_QUOTES, 'UTF-8'), $value);
+                return array_map(
+                    fn($v) => htmlspecialchars(
+                        (string) ($v ?? ''),
+                        ENT_QUOTES | ENT_SUBSTITUTE,
+                        'UTF-8',
+                    ),
+                    $value,
+                );
             }
 
-            return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
-
+            return htmlspecialchars((string) ($value ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
         });
 
-        $this->guard()->register('ipBlacklist', function (string $ip, array $list = []) use ($config) {
-
+        $this->guard()->register('ipBlacklist', function (string $ip, array $list = []) use (
+            $config,
+        ) {
             if (empty($list)) {
                 $list = $config->get('guard:ipBlacklist');
             }
 
             if (in_array($ip, $list, true)) {
-                throw new \InvalidArgumentException('IP address is blacklisted!');
+                throw new InvalidArgumentException('IP address is blacklisted!');
             }
 
             return true;
-
         });
 
-        $this->guard()->register('userAgentBlacklist', function (string $userAgent, array $list = []) use ($config) {
-
+        $this->guard()->register('userAgentBlacklist', function (
+            string $userAgent,
+            array $list = [],
+        ) use ($config) {
             if (empty($list)) {
                 $list = $config->get('guard:userAgentBlacklist');
             }
 
             if (in_array($userAgent, $list, true)) {
-                throw new \InvalidArgumentException('UserAgent is blacklisted!');
+                throw new InvalidArgumentException('UserAgent is blacklisted!');
             }
 
             return true;
-
         });
-
     }
 
     /**
@@ -489,13 +515,13 @@ class App
     private function createServerRequest(): ServerRequestInterface
     {
         $psr17Factory = new Psr17Factory();
-        $creator = new ServerRequestCreator(
+        $creator      = new ServerRequestCreator(
             $psr17Factory, // ServerRequestFactory
             $psr17Factory, // UriFactory
             $psr17Factory, // UploadedFileFactory
-            $psr17Factory  // StreamFactory
+            $psr17Factory, // StreamFactory
         );
+
         return $creator->fromGlobals();
     }
-
 }
