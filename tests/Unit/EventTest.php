@@ -41,6 +41,60 @@ class EventTest extends NafTestCase
         );
     }
 
+    /**
+     * The regression the deferred sort could introduce, and the reason it is a
+     * flag rather than a one-off: a listener registered after an event has
+     * already been dispatched has to take its place in the order, not the end
+     * of the queue.
+     */
+    public function testAListenerAddedAfterADispatchStillTakesItsPlace()
+    {
+        $event = new EventManager();
+
+        $event->listen(CustomEvent::TEST_EVENT, fn () => 'first');
+        $this->assertSame(['first'], $event->dispatch(CustomEvent::TEST_EVENT));
+
+        $event->listen(CustomEvent::TEST_EVENT, fn () => 'urgent', priority: 100);
+
+        $this->assertSame(
+            ['urgent', 'first'],
+            $event->dispatch(CustomEvent::TEST_EVENT),
+            'a listener registered after the first dispatch was never sorted in'
+        );
+    }
+
+    /**
+     * Listeners that share a priority run in the order they were registered.
+     *
+     * Nobody declares this and several things rely on it, which is what makes it
+     * worth a test: PHP's sort has been stable since 8.0, and the deferred sort
+     * must not be the thing that quietly changes it.
+     */
+    public function testListenersOfEqualPriorityKeepTheOrderTheyWereAddedIn()
+    {
+        $event = new EventManager();
+
+        foreach (['a', 'b', 'c', 'd'] as $name) {
+            $event->listen(CustomEvent::TEST_EVENT, fn () => $name);
+        }
+
+        $this->assertSame(['a', 'b', 'c', 'd'], $event->dispatch(CustomEvent::TEST_EVENT));
+    }
+
+    /** Sorting once and dispatching twice is still two identical answers. */
+    public function testRepeatedDispatchesAnswerTheSame()
+    {
+        $event = new EventManager();
+
+        $event->listen(CustomEvent::TEST_EVENT, fn () => 'low', priority: -5);
+        $event->listen(CustomEvent::TEST_EVENT, fn () => 'high', priority: 5);
+
+        $first = $event->dispatch(CustomEvent::TEST_EVENT);
+
+        $this->assertSame($first, $event->dispatch(CustomEvent::TEST_EVENT));
+        $this->assertSame(['high', 'low'], $first);
+    }
+
     public function testDispatchForResponseReturnsNullWithoutListeners()
     {
         $event = new EventManager();

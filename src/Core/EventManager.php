@@ -14,6 +14,24 @@ class EventManager
     protected array $listeners = [];
 
     /**
+     * Events whose listeners are not in priority order yet.
+     *
+     * Sorting belongs to dispatching, not to registering. Doing it on every
+     * listen() sorts a list that is still being built -- n sorts of a growing
+     * list, so registering n listeners for one event costs O(n^2 log n), and at
+     * a thousand listeners that is most of a tenth of a second spent putting
+     * the same list in order a thousand times.
+     *
+     * An application with a handful of listeners per event will not notice
+     * either way. This is here because events are the extension mechanism, so
+     * the number of listeners is somebody else's decision, and a limit nobody
+     * chose is the kind that is found late.
+     *
+     * @var array<string, true>
+     */
+    protected array $unsorted = [];
+
+    /**
      * Register a listener for a specific event
      *
      * @param string         $event    Name of the event to listen for (use Event::* constants)
@@ -29,7 +47,7 @@ class EventManager
             'priority' => $priority,
         ];
 
-        usort($this->listeners[$event], fn($a, $b) => $b['priority'] <=> $a['priority']);
+        $this->unsorted[$event] = true;
 
         return $this;
     }
@@ -45,6 +63,14 @@ class EventManager
     public function dispatch(string $event, mixed ...$payload): array
     {
         $responses = [];
+
+        if (isset($this->unsorted[$event], $this->listeners[$event])) {
+            // Stable since PHP 8.0, so listeners that share a priority still run
+            // in the order they were registered -- which several of them rely on
+            // and none of them declares.
+            usort($this->listeners[$event], fn($a, $b) => $b['priority'] <=> $a['priority']);
+            unset($this->unsorted[$event]);
+        }
 
         if (!empty($this->listeners[$event])) {
             foreach ($this->listeners[$event] as $listener) {
