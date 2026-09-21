@@ -55,13 +55,34 @@ class EventManager
     /**
      * Dispatch an event to all registered listeners
      *
-     * @param string $event Name of the event to dispatch (use Event::* constants)
-     * @param mixed         ...$payload Variable number of arguments to pass to the listeners
+     * An object may be dispatched instead of a name, in which case its class is
+     * the name and the object itself is the payload:
+     *
+     *     event()->dispatch(new OrderShipped($order));
+     *     event()->listen(OrderShipped::class, fn(OrderShipped $e) => ...);
+     *
+     * listen() needs nothing for this -- `::class` is a string like any other
+     * name -- which is why an application can move to objects one event at a
+     * time, and why the string form below keeps working for the ones that have
+     * no class and do not need one.
+     *
+     * What it buys is what a string cannot: a misspelled class is an error where
+     * it is written, an IDE can find every listener of an event, renaming one is
+     * a refactoring rather than a search, and the payload has a declared shape
+     * instead of a docblock describing variadic arguments.
+     *
+     * @param string|object $event      Event name, or an event object standing for both
+     * @param mixed         ...$payload Arguments for the listeners; ignored for an object
      *
      * @return array Array of responses from all listeners
      */
-    public function dispatch(string $event, mixed ...$payload): array
+    public function dispatch(string|object $event, mixed ...$payload): array
     {
+        if (is_object($event)) {
+            $payload = [$event];
+            $event   = $event::class;
+        }
+
         $responses = [];
 
         if (isset($this->unsorted[$event], $this->listeners[$event])) {
@@ -102,12 +123,12 @@ class EventManager
      * listener registered after the one that answered cannot discard its result
      * by returning null.
      *
-     * @param string $event      Name of the event to dispatch (use Event::* constants)
-     * @param mixed  ...$payload Variable number of arguments to pass to the listeners
+     * @param string|object $event      Event name, or an event object standing for both
+     * @param mixed         ...$payload Arguments for the listeners; ignored for an object
      *
      * @return ResponseInterface|null The last response returned by a listener, or null
      */
-    public function dispatchForResponse(string $event, mixed ...$payload): ?ResponseInterface
+    public function dispatchForResponse(string|object $event, mixed ...$payload): ?ResponseInterface
     {
         $responses = array_filter(
             $this->dispatch($event, ...$payload),
