@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use Fixtures\Enums\CustomEvent;
+use Fixtures\Events\OrderShipped;
 use Fixtures\Events\TestEventListener;
 use Naf\Core\EventManager;
 use Nyholm\Psr7\Response;
@@ -93,6 +94,60 @@ class EventTest extends NafTestCase
 
         $this->assertSame($first, $event->dispatch(CustomEvent::TEST_EVENT));
         $this->assertSame(['high', 'low'], $first);
+    }
+
+    /**
+     * An object stands for both halves: its class is the name, itself the payload.
+     */
+    public function testAnEventObjectIsItsOwnNameAndPayload()
+    {
+        $event = new EventManager();
+        $seen  = null;
+
+        $event->listen(OrderShipped::class, function (OrderShipped $shipped) use (&$seen) {
+            $seen = $shipped;
+
+            return $shipped->order;
+        });
+
+        $shipped = new OrderShipped('A-1');
+
+        $this->assertSame(['A-1'], $event->dispatch($shipped));
+        $this->assertSame($shipped, $seen, 'the listener was handed something other than the event');
+    }
+
+    /**
+     * The same object reaches every listener, which is what makes one of them
+     * able to change something the next one sees.
+     */
+    public function testEveryListenerSeesTheSameObject()
+    {
+        $event   = new EventManager();
+        $shipped = new OrderShipped('A-1');
+
+        $event->listen(OrderShipped::class, fn(OrderShipped $e) => $e->lines[] = 'first', priority: 10);
+        $event->listen(OrderShipped::class, fn(OrderShipped $e) => $e->lines[] = 'second');
+
+        $event->dispatch($shipped);
+
+        $this->assertSame(['first', 'second'], $shipped->lines);
+    }
+
+    /**
+     * Names and objects are separate events even where they look alike, and the
+     * string form keeps working -- an application moves over one event at a time
+     * or not at all.
+     */
+    public function testNamedEventsAreUntouched()
+    {
+        $event = new EventManager();
+
+        $event->listen(CustomEvent::TEST_EVENT, fn() => 'by name');
+        $event->listen(OrderShipped::class, fn() => 'by class');
+
+        $this->assertSame(['by name'], $event->dispatch(CustomEvent::TEST_EVENT));
+        $this->assertSame(['by class'], $event->dispatch(new OrderShipped('A-1')));
+        $this->assertSame([], $event->dispatch('Fixtures\\Events\\NobodyListens'));
     }
 
     public function testDispatchForResponseReturnsNullWithoutListeners()
