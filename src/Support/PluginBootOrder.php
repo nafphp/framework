@@ -60,12 +60,8 @@ final class PluginBootOrder
             if (!is_array($boot) || array_diff(array_keys($boot), ['before', 'after']) !== []) {
                 throw new InvalidArgumentException(sprintf('%s extra.naf.boot must contain only before/after lists.', $package));
             }
-            foreach (['before', 'after'] as $relation) {
-                $targets = $boot[$relation] ?? [];
-                $source  = sprintf('%s extra.naf.boot.%s', $package, $relation);
-                if (array_key_exists($relation, $boot) && $boot[$relation] === null) {
-                    throw new InvalidArgumentException($source . ' must be a list of package names.');
-                }
+            foreach ($boot as $relation => $targets) {
+                $source = sprintf('%s extra.naf.boot.%s', $package, $relation);
                 self::validateNames($targets, $source);
                 foreach (array_unique($targets) as $target) {
                     if (!array_key_exists($target, $manifests)) {
@@ -84,8 +80,11 @@ final class PluginBootOrder
             }
         }
 
+        // Removing resolved dependencies preserves this priority among ready packages.
+        $rank = array_flip($preferred);
+        uksort($dependencies, static fn(string $a, string $b): int
+            => ($rank[$a] ?? PHP_INT_MAX) <=> ($rank[$b] ?? PHP_INT_MAX) ?: strcmp($a, $b));
         $remaining = $dependencies;
-        $rank      = array_flip($preferred);
         $plan      = [];
         while ($remaining !== []) {
             $ready = array_keys(array_filter($remaining, static fn(array $needs): bool => $needs === []));
@@ -98,8 +97,6 @@ final class PluginBootOrder
                 throw new RuntimeException('Plugin boot cycle: ' . implode(' -> ', $cycle)
                     . '. Declared by: ' . implode('; ', array_unique($reasons)) . '.');
             }
-            usort($ready, static fn(string $a, string $b): int
-                => ($rank[$a] ?? PHP_INT_MAX) <=> ($rank[$b] ?? PHP_INT_MAX) ?: strcmp($a, $b));
             $package = $ready[0];
             ksort($dependencies[$package], SORT_STRING);
             foreach ($dependencies[$package] as &$sources) {
@@ -130,47 +127,17 @@ final class PluginBootOrder
         }
     }
 
-    /** Find an actual directed cycle, excluding packages merely blocked behind it. */
+    /** Every remaining package has a prerequisite: following them must reach a cycle. */
     private static function cycle(array $dependencies): array
     {
-        $outgoing = array_fill_keys(array_keys($dependencies), []);
-        foreach ($dependencies as $after => $needs) {
-            foreach (array_keys($needs) as $before) {
-                $outgoing[$before][] = $after;
-            }
-        }
-        ksort($outgoing, SORT_STRING);
-        foreach ($outgoing as &$targets) {
-            sort($targets, SORT_STRING);
-        }
-        unset($targets);
-        $finished = [];
-        $path     = [];
-        $visit    = static function (string $package) use (&$visit, &$path, &$finished, $outgoing): ?array {
-            $start = array_search($package, $path, true);
-            if ($start !== false) {
-                return [...array_slice($path, $start), $package];
-            }
-            if (isset($finished[$package])) {
-                return null;
-            }
-            $path[] = $package;
-            foreach ($outgoing[$package] as $next) {
-                if (null !== $cycle = $visit($next)) {
-                    return $cycle;
-                }
-            }
-            array_pop($path);
-            $finished[$package] = true;
-
-            return null;
-        };
-        foreach (array_keys($outgoing) as $package) {
-            if (null !== $cycle = $visit($package)) {
-                return $cycle;
-            }
+        $path    = [];
+        $package = array_key_first($dependencies);
+        while (!isset($path[$package])) {
+            $path[$package] = count($path);
+            $package        = array_key_first($dependencies[$package]);
         }
 
-        throw new RuntimeException('Unable to explain plugin boot cycle.');
+        // Drop the path leading into the cycle; report edges in boot order.
+        return array_reverse([...array_slice(array_keys($path), $path[$package]), $package]);
     }
 }

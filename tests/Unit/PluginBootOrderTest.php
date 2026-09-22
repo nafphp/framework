@@ -49,6 +49,23 @@ final class PluginBootOrderTest extends TestCase
         $this->assertSame(['host plugins.php'], $plan['pkg/b']['after']['pkg/c']);
     }
 
+    public function testNewlyReadyPackagesKeepTheirHostPriority(): void
+    {
+        $plan = PluginBootOrder::resolve([
+            'pkg/a' => [],
+            'pkg/b' => [],
+            'pkg/c' => ['extra' => ['naf' => ['boot' => ['after' => ['pkg/a']]]]],
+        ], ['pkg/c']);
+        $this->assertSame(['pkg/a', 'pkg/c', 'pkg/b'], array_keys($plan));
+
+        $plan = PluginBootOrder::resolve([
+            'pkg/a' => ['extra' => ['naf' => ['boot' => ['after' => ['pkg/z']]]]],
+            'pkg/b' => [],
+            'pkg/z' => [],
+        ], ['pkg/z']);
+        $this->assertSame(['pkg/z', 'pkg/a', 'pkg/b'], array_keys($plan));
+    }
+
     public function testHostCannotReverseADeclaredDependency(): void
     {
         $this->expectException(RuntimeException::class);
@@ -63,10 +80,10 @@ final class PluginBootOrderTest extends TestCase
     {
         try {
             PluginBootOrder::resolve([
-                'pkg/a'          => ['extra' => ['naf' => ['boot' => ['before' => ['pkg/b', 'pkg/downstream']]]]],
-                'pkg/b'          => ['extra' => ['naf' => ['boot' => ['before' => ['pkg/c']]]]],
-                'pkg/c'          => ['extra' => ['naf' => ['boot' => ['before' => ['pkg/a']]]]],
-                'pkg/downstream' => [],
+                'pkg/a'            => ['extra' => ['naf' => ['boot' => ['before' => ['pkg/b', 'pkg/0-downstream']]]]],
+                'pkg/b'            => ['extra' => ['naf' => ['boot' => ['before' => ['pkg/c']]]]],
+                'pkg/c'            => ['extra' => ['naf' => ['boot' => ['before' => ['pkg/a']]]]],
+                'pkg/0-downstream' => [],
             ]);
             $this->fail('A cycle must fail before boot.');
         } catch (RuntimeException $exception) {
