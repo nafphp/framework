@@ -43,8 +43,14 @@ adding abstractions. Do not add application-specific dependencies to the core.
   Establish the host's `BASE_PATH` before the first call. Register host service overrides before
   `run()`; keep route files free of eager service resolution during boot.
 - Composer packages of type `naf-plugin` are discovered through `InstalledVersions`.
-  `app/plugins.php` orders installed packages; it does not install or exclude them. Register
-  every plugin before booting any, so lazy configuration sees the complete registry.
+  Plugins declare `extra.naf.boot.before` / `after` lists in their own `composer.json`.
+  `PluginBootOrder` validates and sorts the complete graph before any bootstrap runs.
+  Composer `require` is not a boot edge. Absent optional targets are reported and ignored.
+  An optional host `app/plugins.php` or `src/plugins.php` prioritizes installed packages
+  and constrains their relative order; conflicts report a cycle instead of breaking an edge.
+  Unconstrained ties use package names. Register every plugin before booting any, so lazy
+  configuration sees the complete registry. `getPluginBootPlan()` explains the result.
+  The resulting plugin order also determines resource precedence; host routes still load last.
   `hasPlugin()` means registered; use `isBooted()` when boot completion matters.
 - `CoreFileLoader` chooses the first existing conventional resource. Preserve its explicit
   `app/`/`src/` and view-path precedence and test collision cases. Plugin routes and helper
