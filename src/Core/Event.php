@@ -9,6 +9,7 @@ namespace Naf\Core;
  */
 class Event
 {
+    const string PLUGINS_BOOTED = 'plugins.booted'; // All plugin bootstraps finished; host routes have not loaded
     const string CONTROLLER_CALLING = 'controller.calling'; // Before the controller is called
     const string CONTROLLER_CALLED = 'controller.called';   // After the controller is called
     const string ROUTE_MATCHING = 'route.matching';         // Route is about to match or not
