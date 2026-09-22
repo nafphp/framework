@@ -10,6 +10,7 @@ use Naf\Support\AppHolder;
 use Naf\Support\CoreFileLoader;
 use Naf\Support\Guard;
 use Naf\Support\Plugin;
+use Naf\Support\PluginBootOrder;
 use Naf\Support\RequestParameter;
 use Naf\Support\Stopwatch;
 use Nyholm\Psr7\Factory\Psr17Factory;
@@ -31,6 +32,8 @@ class App
 
     /** @var Plugin[] */
     private array $plugins = [];
+
+    private array $pluginBootPlan = [];
 
     /**
      * Initialize the application with a dependency container
@@ -149,6 +152,12 @@ class App
     public function getPlugins(): array
     {
         return $this->plugins;
+    }
+
+    /** Ordered plugins, their boot prerequisites and absent optional targets. */
+    public function getPluginBootPlan(): array
+    {
+        return $this->pluginBootPlan;
     }
 
     public function hasPlugin(string $name): bool
@@ -384,26 +393,30 @@ class App
         );
 
         if ($pluginConfigPath !== null) {
-            $configured      = require $pluginConfigPath;
-            $orderedPackages = is_array($configured) ? $configured : [];
+            $configured = require $pluginConfigPath;
+            if (!is_array($configured)) {
+                throw new InvalidArgumentException('Host plugins.php must return a list of package names.');
+            }
+
+            $orderedPackages = $configured;
         }
 
-        $allPackages = array_unique(InstalledVersions::getInstalledPackagesByType('naf-plugin'));
-        $ordered     = array_filter($orderedPackages, fn($name) => in_array($name, $allPackages));
-        $remaining   = array_diff($allPackages, $ordered);
+        $paths = [];
+        foreach (array_unique(InstalledVersions::getInstalledPackagesByType('naf-plugin')) as $package) {
+            $path = InstalledVersions::getInstallPath($package);
+            if ($path !== null) {
+                $paths[$package] = $path;
+            }
+        }
 
-        $finalOrder = array_merge($ordered, $remaining);
+        $this->pluginBootPlan = PluginBootOrder::fromPaths($paths, $orderedPackages);
 
         // Register every plugin before booting any of them. Booting runs
         // userland code that may call config(), and the Config service caches
         // itself on first access: if the registry were still filling up at
         // that point, the config of every plugin after it would be lost.
-        foreach ($finalOrder as $package) {
-            $path = InstalledVersions::getInstallPath($package);
-
-            if (!$path) {
-                continue;
-            }
+        foreach (array_keys($this->pluginBootPlan) as $package) {
+            $path = $paths[$package];
 
             $plugin = CoreFileLoader::createPlugin($package, $path);
             $plugin->setVersion($this->resolvePluginVersion($package));
