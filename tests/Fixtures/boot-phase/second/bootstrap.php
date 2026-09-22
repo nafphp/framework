@@ -1,2 +1,0 @@
-<?php
-$GLOBALS['bootOrder'][] = 'second';

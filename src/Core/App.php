@@ -249,7 +249,6 @@ class App
         $this->loadEnv($envFile);
         $this->loadServices();
         $this->loadPlugins();
-        $this->container->get(EventManager::class)->dispatch(Event::PLUGINS_BOOTED);
         $this->loadRoutes();
         if (PHP_SAPI !== 'cli') {
             $this->loadGuards();

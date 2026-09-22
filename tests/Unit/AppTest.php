@@ -80,12 +80,4 @@ class AppTest extends NafTestCase
         }
     }
 
-    public function testPluginCompletionRunsOnceBeforeHostRoutesInARealBoot(): void
-    {
-        $command = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/../Fixtures/boot-phase/run.php');
-        exec($command . ' 2>&1', $output, $status);
-        $this->assertSame(0, $status, implode("\n", $output));
-        $this->assertSame(['first', 'second', 'ready', 'routes'], json_decode(implode("\n", $output), true));
-    }
-
 }
