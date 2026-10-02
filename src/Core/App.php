@@ -267,6 +267,10 @@ class App
     /**
      * Load environment variables from a file
      *
+     * The file only fills gaps: a variable the process already has -- in $_ENV
+     * or in its environment, which $_ENV does not show unless variables_order
+     * contains E -- keeps its value.
+     *
      * @param string $path Path to the environment file
      */
     private function loadEnv(string $path = '/.env'): void
@@ -285,7 +289,7 @@ class App
             $key   = trim($key);
             $value = trim($value);
 
-            if (!array_key_exists($key, $_ENV)) {
+            if (!array_key_exists($key, $_ENV) && getenv($key) === false) {
                 $_ENV[$key] = $value;
                 putenv("$key=$value");
             }
