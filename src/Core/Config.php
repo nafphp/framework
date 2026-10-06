@@ -64,6 +64,10 @@ class Config
      * Recursively resolves environment variables in configuration values
      * Environment variables should be prefixed with 'ENV:' in config values
      *
+     * $_ENV first, because the .env file fills it; then the process environment,
+     * because PHP leaves $_ENV empty unless variables_order contains E -- which
+     * the php.ini PHP ships with does not. An unset variable resolves to null.
+     *
      * @param array<string,mixed> $config Configuration array to process
      *
      * @return array<string,mixed> Processed configuration with resolved ENV values
@@ -74,8 +78,8 @@ class Config
             if (is_array($value)) {
                 $config[$key] = $this->resolveEnv($value);
             } elseif (is_string($value) && str_starts_with($value, 'ENV:')) {
-                $envKey = substr($value, 4);
-                $config[$key] = $_ENV[$envKey] ?? null;
+                $envKey       = substr($value, 4);
+                $config[$key] = $_ENV[$envKey] ?? (getenv($envKey) === false ? null : getenv($envKey));
             }
         }
         return $config;

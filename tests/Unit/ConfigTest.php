@@ -66,4 +66,41 @@ class ConfigTest extends NafTestCase
         $this->assertIsBool(config('foo'));
     }
 
+    public function testAnEnvReferenceReadsTheProcessEnvironmentWhenEnvLacksIt()
+    {
+        // What a stock php.ini gives: variables_order without E leaves $_ENV
+        // empty, while the variable is in the process environment.
+        unset($_ENV['NAF_CONFIG_PROBE']);
+        putenv('NAF_CONFIG_PROBE=from-process');
+
+        try {
+            $config = new Config(['probe' => 'ENV:NAF_CONFIG_PROBE']);
+            $this->assertSame('from-process', $config->get('probe'));
+        } finally {
+            putenv('NAF_CONFIG_PROBE');
+        }
+    }
+
+    public function testEnvWinsOverTheProcessEnvironment()
+    {
+        $_ENV['NAF_CONFIG_PROBE'] = 'from-env';
+        putenv('NAF_CONFIG_PROBE=from-process');
+
+        try {
+            $config = new Config(['probe' => 'ENV:NAF_CONFIG_PROBE']);
+            $this->assertSame('from-env', $config->get('probe'));
+        } finally {
+            unset($_ENV['NAF_CONFIG_PROBE']);
+            putenv('NAF_CONFIG_PROBE');
+        }
+    }
+
+    public function testAnUnsetVariableResolvesToNull()
+    {
+        unset($_ENV['NAF_CONFIG_ABSENT']);
+        putenv('NAF_CONFIG_ABSENT');
+
+        $this->assertNull((new Config(['probe' => 'ENV:NAF_CONFIG_ABSENT']))->get('probe'));
+    }
+
 }

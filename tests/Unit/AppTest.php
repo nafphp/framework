@@ -10,6 +10,7 @@ use Naf\Support\Plugin;
 use Naf\Support\Stopwatch;
 use Psr\Http\Message\ServerRequestInterface;
 use ReflectionClass;
+use ReflectionMethod;
 use RuntimeException;
 use Tests\NafTestCase;
 
@@ -77,6 +78,32 @@ class AppTest extends NafTestCase
             unset($GLOBALS['seenDuringBoot']);
             unlink($bootstrap);
             Stopwatch::stop('app');
+        }
+    }
+
+    public function testTheEnvFileFillsGapsAndLeavesTheProcessEnvironmentAlone()
+    {
+        $file = tempnam(sys_get_temp_dir(), 'naf-env');
+        file_put_contents($file, "NAF_DOTENV_SET=from-file\nNAF_DOTENV_GAP=from-file\n");
+        unset($_ENV['NAF_DOTENV_SET'], $_ENV['NAF_DOTENV_GAP']);
+        // Set by the process -- Compose, a shell -- and, as with a stock
+        // php.ini, not in $_ENV.
+        putenv('NAF_DOTENV_SET=from-process');
+        putenv('NAF_DOTENV_GAP');
+
+        try {
+            $app = new App(new Container());
+            (new ReflectionMethod($app, 'loadEnv'))->invoke($app, $file);
+
+            $this->assertSame('from-process', getenv('NAF_DOTENV_SET'), 'the file overrode the process');
+            $this->assertArrayNotHasKey('NAF_DOTENV_SET', $_ENV);
+            $this->assertSame('from-file', $_ENV['NAF_DOTENV_GAP']);
+            $this->assertSame('from-file', getenv('NAF_DOTENV_GAP'));
+        } finally {
+            unlink($file);
+            unset($_ENV['NAF_DOTENV_SET'], $_ENV['NAF_DOTENV_GAP']);
+            putenv('NAF_DOTENV_SET');
+            putenv('NAF_DOTENV_GAP');
         }
     }
 

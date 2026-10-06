@@ -58,8 +58,10 @@ adding abstractions. Do not add application-specific dependencies to the core.
   or Composer `autoload.files`; discovery of plugin helpers does not load host helpers.
 - Configuration merges core, plugins and host with `array_replace_recursive()`; the host wins
   and numeric arrays merge by index. `config('section:key')` reads nested values; it is not a
-  setter. `env()` returns the environment name. `.env.local` replaces `.env` when present;
-  runtime environment constants are `dev`, `test` and `prod`.
+  setter. `env()` returns the environment name. `.env.local` replaces `.env` when present
+  and only fills gaps: a variable in `$_ENV` or the process environment keeps its value.
+  `ENV:NAME` reads `$_ENV`, then `getenv()`, so it works without `E` in `variables_order`.
+  Runtime environment constants are `dev`, `test` and `prod`.
 - `get($id)` retrieves registered/cached services. `make($class)` builds a fresh instance by
   default; `singleton: true` stores it. Bind interfaces and scalar configuration explicitly.
   `set()` clears that binding's cached value, not references held by existing consumers.
