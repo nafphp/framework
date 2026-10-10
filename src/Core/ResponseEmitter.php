@@ -36,7 +36,7 @@ final class ResponseEmitter
 
         // Before the head is written a failing listener can still be reported
         // normally, so this dispatch is allowed to throw.
-        $response = event()->dispatchForResponse(Event::RESPONSE_HEADER, $response) ?? $response;
+        $response = event()->dispatchResponse(Event::RESPONSE_HEADER, $response);
 
         self::writeHead($response);
 

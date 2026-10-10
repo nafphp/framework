@@ -39,7 +39,8 @@ adding abstractions. Do not add application-specific dependencies to the core.
 ## Boot and extension contracts to preserve
 
 - `app()` lazily constructs `App` with `AutoResolvingContainer(new Container())`. Construction
-  boots the application: environment, services, installed plugins, host routes, then HTTP guards.
+  boots the application: environment, services, installed plugins, host routes, then the core
+  guard rules (also under CLI, so views and escaping work in commands and workers).
   Establish the host's `BASE_PATH` before the first call. Register host service overrides before
   `run()`; keep route files free of eager service resolution during boot.
 - Composer packages of type `naf-plugin` are discovered through `InstalledVersions`.
@@ -123,8 +124,10 @@ Keep response construction in `response()` and its `json()`/`redirect()`/`refres
 Return PSR-7 responses from handlers; do not emit headers or exit in application examples.
 Preserve the protocol/status/reason phrase, repeated headers and immutable `with*()` results.
 The example header hook works because `RESPONSE_HEADER` consumes a returned response.
-`CONTROLLER_CALLED` and `RESPONSE_SEND` do not replace responses. `dispatchForResponse()`
-selects the last response returned; it does not pipe one listener's result into the next.
+`CONTROLLER_CALLED` and `RESPONSE_SEND` do not replace responses. `RESPONSE_HEADER` uses
+`dispatchResponse()`, which passes each returned response to the next listener, so several
+listeners can add headers. `dispatchForResponse()` (used for `EXCEPTION`) still selects the last
+response returned and does not pipe one listener's result into the next.
 Inspect payloads and call sites before using an event as an extension point.
 
 ## Verify a change

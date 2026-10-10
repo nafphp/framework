@@ -259,9 +259,9 @@ class App
         $this->loadServices();
         $this->loadPlugins();
         $this->loadRoutes();
-        if (PHP_SAPI !== 'cli') {
-            $this->loadGuards();
-        }
+        // Commands and workers render views and escape output too; without these
+        // rules view() and s() failed under CLI with "Guard ... not found".
+        $this->loadGuards();
     }
 
     /**
@@ -461,7 +461,9 @@ class App
      */
     private function loadGuards(): void
     {
-        $config = $this->container->get(Config::class);
+        // Configuration is read when a blocklist rule runs, not here: building it
+        // during boot would fix its contents before the first config() call.
+        $configured = fn(string $key): array => (array) ($this->container->get(Config::class)->get($key) ?? []);
 
         $this->guard()->register('safePath', function ($path) {
             if (
@@ -495,10 +497,10 @@ class App
         });
 
         $this->guard()->register('ipBlacklist', function (string $ip, array $list = []) use (
-            $config,
+            $configured,
         ) {
             if (empty($list)) {
-                $list = $config->get('guard:ipBlacklist');
+                $list = $configured('guard:ipBlacklist');
             }
 
             if (in_array($ip, $list, true)) {
@@ -511,9 +513,9 @@ class App
         $this->guard()->register('userAgentBlacklist', function (
             string $userAgent,
             array $list = [],
-        ) use ($config) {
+        ) use ($configured) {
             if (empty($list)) {
-                $list = $config->get('guard:userAgentBlacklist');
+                $list = $configured('guard:userAgentBlacklist');
             }
 
             if (in_array($userAgent, $list, true)) {

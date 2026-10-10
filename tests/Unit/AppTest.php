@@ -107,4 +107,25 @@ class AppTest extends NafTestCase
         }
     }
 
+    public function testCoreGuardRulesExistUnderCli()
+    {
+        $this->assertSame('cli', PHP_SAPI);
+        $app = new App(new Container());
+
+        try {
+            $guard = $app->guard();
+
+            // view(), render() and s() rely on these; they used to exist for HTTP only.
+            $this->assertTrue($guard->has('safePath'));
+            $this->assertSame('&lt;b&gt;', $guard->safeOutput('<b>'));
+            $this->assertSame('users.show', $guard->safePath('users.show'));
+
+            // Without a configured list the blocklists allow everything instead of failing.
+            $this->assertTrue($guard->ipBlacklist('203.0.113.7'));
+            $this->assertTrue($guard->userAgentBlacklist('curl/8'));
+        } finally {
+            Stopwatch::stop('app');
+        }
+    }
+
 }
