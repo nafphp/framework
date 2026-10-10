@@ -6,6 +6,7 @@ namespace Naf\Core;
 
 use Composer\InstalledVersions;
 use InvalidArgumentException;
+use Naf\Contracts\ConfigurationSourceInterface;
 use Naf\Support\AppHolder;
 use Naf\Support\CoreFileLoader;
 use Naf\Support\Guard;
@@ -192,6 +193,7 @@ class App
         if (
             !in_array($resource, [
                 'configPaths',
+                'configSourceFiles',
                 'viewPaths',
                 'routeFiles',
                 'functionsFiles',
@@ -331,7 +333,26 @@ class App
 
             $merged = array_replace_recursive($coreConfig, $pluginConfig, $appConfig);
 
-            return new Config($merged);
+            $configuration = new Config($merged);
+            $sourceFiles = $this->collectPluginResources('configSourceFiles');
+            $hostSources = CoreFileLoader::file($this->getBasePath(), CoreFileLoader::CONFIG_SOURCE_FILES);
+            if ($hostSources !== null && !in_array($hostSources, $sourceFiles, true)) {
+                $sourceFiles[] = $hostSources;
+            }
+            foreach ($sourceFiles as $file) {
+                $sources = require $file;
+                if (!is_array($sources)) {
+                    throw new InvalidArgumentException('Configuration source files must return a list of classes.');
+                }
+                foreach ($sources as $class) {
+                    if (!is_string($class) || !is_subclass_of($class, ConfigurationSourceInterface::class)) {
+                        throw new InvalidArgumentException('Invalid configuration source in ' . $file);
+                    }
+                    $source = new $class();
+                    $configuration->overlay($source->name(), $source->load($this->getBasePath()));
+                }
+            }
+            return $configuration;
         });
 
         $this->container->set(LoggerInterface::class, function () {

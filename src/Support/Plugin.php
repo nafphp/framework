@@ -8,6 +8,7 @@ class Plugin
 {
     protected string $name;
     protected array $configPaths = [];
+    protected array $configSourceFiles = [];
     protected array $viewPaths   = [];
     protected array $routeFiles  = [];
     protected array $functionsFiles   = [];
@@ -24,6 +25,16 @@ class Plugin
     public function addConfigPath(string $path): void
     {
         $this->configPaths[] = $path;
+    }
+
+    public function addConfigSourceFile(string $path): void
+    {
+        $this->configSourceFiles[] = $path;
+    }
+
+    public function getConfigSourceFiles(): array
+    {
+        return $this->configSourceFiles;
     }
 
     public function addViewPath(string $path): void
