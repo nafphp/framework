@@ -181,4 +181,30 @@ class EventTest extends NafTestCase
         $this->assertSame($last, $event->dispatchForResponse(CustomEvent::TEST_EVENT));
     }
 
+    public function testDispatchResponsePassesEachReplacementToTheNextListener()
+    {
+        $event = new EventManager();
+
+        $event->listen(CustomEvent::TEST_EVENT, fn (Response $r) => $r->withHeader('Set-Cookie', 'lang=en'));
+        $event->listen(CustomEvent::TEST_EVENT, fn (Response $r) => null);
+        $event->listen(CustomEvent::TEST_EVENT, fn (Response $r) => $r->withHeader('X-Frame-Options', 'DENY'));
+
+        $response = $event->dispatchResponse(CustomEvent::TEST_EVENT, new Response(200));
+
+        // Both additions survive: the second listener built on the first one's response.
+        $this->assertSame('lang=en', $response->getHeaderLine('Set-Cookie'));
+        $this->assertSame('DENY', $response->getHeaderLine('X-Frame-Options'));
+    }
+
+    public function testDispatchResponseKeepsTheResponseWithoutReplacements()
+    {
+        $event    = new EventManager();
+        $original = new Response(204);
+
+        $event->listen(CustomEvent::TEST_EVENT, fn () => 'not a response');
+
+        $this->assertSame($original, $event->dispatchResponse(CustomEvent::TEST_EVENT, $original));
+        $this->assertSame($original, (new EventManager())->dispatchResponse(CustomEvent::TEST_EVENT, $original));
+    }
+
 }

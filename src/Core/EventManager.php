@@ -85,6 +85,54 @@ class EventManager
 
         $responses = [];
 
+        foreach ($this->sortedListeners($event) as $listener) {
+            if ($this->isInvokable($listener['callback'])) {
+                $responses[] = $this->invoke($listener['callback'], $payload);
+            }
+        }
+
+        return $responses;
+    }
+
+    /**
+     * Dispatch an event whose payload is a response that listeners may replace
+     *
+     * Each listener receives the response the previous listener returned, so
+     * several listeners can each add their own headers. With dispatchForResponse()
+     * every listener saw the original response and only the last replacement
+     * survived: an application listener adding security headers silently dropped
+     * the language cookie naf/i18n had added. A listener that returns anything
+     * other than a response leaves the current one in place.
+     *
+     * @param string            $event    Event name
+     * @param ResponseInterface $response The response before any listener ran
+     *
+     * @return ResponseInterface The response after every listener had its turn
+     */
+    public function dispatchResponse(string $event, ResponseInterface $response): ResponseInterface
+    {
+        foreach ($this->sortedListeners($event) as $listener) {
+            if (!$this->isInvokable($listener['callback'])) {
+                continue;
+            }
+
+            $replacement = $this->invoke($listener['callback'], [$response]);
+
+            if ($replacement instanceof ResponseInterface) {
+                $response = $replacement;
+            }
+        }
+
+        return $response;
+    }
+
+    /**
+     * The listeners of an event, highest priority first
+     *
+     * @return list<array{callback: array|callable, priority: int}>
+     */
+    private function sortedListeners(string $event): array
+    {
         if (isset($this->unsorted[$event], $this->listeners[$event])) {
             // Stable since PHP 8.0, so listeners that share a priority still run
             // in the order they were registered -- which several of them rely on
@@ -93,27 +141,44 @@ class EventManager
             unset($this->unsorted[$event]);
         }
 
-        if (!empty($this->listeners[$event])) {
-            foreach ($this->listeners[$event] as $listener) {
-                $callback = $listener['callback'];
+        return $this->listeners[$event] ?? [];
+    }
 
-                if (is_array($callback) && is_string($callback[0]) && !is_callable($callback)) {
-                    [$class, $handle] = $callback;
-                    $container        = app()->container();
-                    if ($container instanceof AutoResolvingContainer) {
-                        $obj = $container->make($class);
-                    } else {
-                        $obj = new $class();
-                    }
+    /**
+     * Whether a listener is a callable or a [ClassName::class, 'method'] pair
+     */
+    private function isInvokable(array|callable $callback): bool
+    {
+        return $this->isClassListener($callback) || is_callable($callback);
+    }
 
-                    $responses[] = $obj->$handle(...$payload);
-                } elseif (is_callable($callback)) {
-                    $responses[] = $callback(...$payload);
-                }
-            }
+    /**
+     * A [ClassName::class, 'method'] pair whose object the container still has to build
+     */
+    private function isClassListener(array|callable $callback): bool
+    {
+        return is_array($callback) && is_string($callback[0]) && !is_callable($callback);
+    }
+
+    /**
+     * Call one listener; class listeners are built through the container
+     *
+     * @param array|callable $callback The registered listener
+     * @param array          $payload  Arguments for the listener
+     */
+    private function invoke(array|callable $callback, array $payload): mixed
+    {
+        if ($this->isClassListener($callback)) {
+            [$class, $handle] = $callback;
+            $container        = app()->container();
+            $object           = $container instanceof AutoResolvingContainer
+                ? $container->make($class)
+                : new $class();
+
+            return $object->$handle(...$payload);
         }
 
-        return $responses;
+        return $callback(...$payload);
     }
 
     /**
