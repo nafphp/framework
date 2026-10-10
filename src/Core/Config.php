@@ -1,77 +1,115 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Naf\Core;
 
-/**
- * Configuration management class that handles array-based config with environment variable support
- */
+use InvalidArgumentException;
+
+/** Array configuration with environment references and named override layers. */
 class Config
 {
+    private array $config;
+    private array $raw;
+    private array $layers     = [];
+    private ?array $effective = null;
 
-    /**
-     * Internal storage for configuration values
-     *
-     * @var array<string,mixed>
-     */
-    private array $config = [];
-
-    /**
-     * Creates a new Config instance with optional configuration array
-     *
-     * @param array<string,mixed> $config Initial configuration array
-     */
     public function __construct(array $config = [])
     {
+        $this->raw    = $config;
         $this->config = $this->resolveEnv($config);
     }
 
-    /**
-     * @param string                       $key
-     * @param string|array|object|int|null $default
-     *
-     * @return string|array|object|null
-     */
     public function get(string $key, mixed $default = null): mixed
     {
-        $result = $this->config[$key] ?? null;
-        if (str_contains($key, ':') !== false) {
-            $result = $this->resolveNamespace($key);
-        }
-        return $result ?? $default;
+        return self::at($this->all(), $key) ?? $default;
     }
 
     public function all(): array
     {
-        return $this->config;
+        if ($this->effective !== null) {
+            return $this->effective;
+        }
+        $values = $this->config;
+        foreach ($this->layers as $layer) {
+            foreach ($layer as $key => $value) {
+                $pointer = &$values;
+                $parts   = explode(':', $key);
+                foreach ($parts as $part) {
+                    if (!is_array($pointer)) {
+                        $pointer = [];
+                    }
+                    $pointer = &$pointer[$part];
+                }
+                $pointer = $value;
+                unset($pointer);
+            }
+        }
+
+        return $this->effective = $values;
     }
 
-    /**
-     * @param string $namespace
-     * @return string|array|object|null
-     */
-    private function resolveNamespace(string $namespace): mixed
+    /** Replace a whole named layer; an empty layer removes its overrides. */
+    public function overlay(string $source, array $values): void
     {
-        $parts   = explode(':', $namespace);
-        $pointer = $this->config;
-        foreach ($parts as $part) {
-            $pointer = $pointer[$part] ?? null;
+        foreach ($values as $key => $value) {
+            if (!is_string($key) || $key === '' || in_array('', explode(':', $key), true)) {
+                throw new InvalidArgumentException('Configuration override keys must be non-empty colon-separated paths.');
+            }
         }
+        $this->layers[$source] = $values;
+        $this->effective       = null;
+    }
+
+    /** Literal values in one named layer, for source-specific persistence. */
+    public function overrides(string $source): array
+    {
+        return $this->layers[$source] ?? [];
+    }
+
+    /** Resolved server configuration, without any runtime overrides. */
+    public function base(?string $key = null, mixed $default = null): mixed
+    {
+        return $key === null ? $this->config : (self::at($this->config, $key) ?? $default);
+    }
+
+    /** Raw server configuration, retaining ENV references for provenance. */
+    public function raw(?string $key = null): mixed
+    {
+        return $key === null ? $this->raw : self::at($this->raw, $key);
+    }
+
+    public function source(string $key): string
+    {
+        foreach (array_reverse($this->layers, true) as $source => $values) {
+            foreach ($values as $path => $value) {
+                if ($key === $path || str_starts_with($key, $path . ':')) {
+                    return $source;
+                }
+            }
+        }
+        $raw = $this->raw($key);
+
+        return is_string($raw) && str_starts_with($raw, 'ENV:')
+            ? 'environment' : 'configuration';
+    }
+
+    private static function at(array $values, string $key): mixed
+    {
+        if (array_key_exists($key, $values)) {
+            return $values[$key];
+        }
+        $pointer = $values;
+        foreach (explode(':', $key) as $part) {
+            if (!is_array($pointer) || !array_key_exists($part, $pointer)) {
+                return null;
+            }
+            $pointer = $pointer[$part];
+        }
+
         return $pointer;
     }
 
-    /**
-     * Recursively resolves environment variables in configuration values
-     * Environment variables should be prefixed with 'ENV:' in config values
-     *
-     * $_ENV first, because the .env file fills it; then the process environment,
-     * because PHP leaves $_ENV empty unless variables_order contains E -- which
-     * the php.ini PHP ships with does not. An unset variable resolves to null.
-     *
-     * @param array<string,mixed> $config Configuration array to process
-     *
-     * @return array<string,mixed> Processed configuration with resolved ENV values
-     */
     private function resolveEnv(array $config): array
     {
         foreach ($config as $key => $value) {
@@ -82,7 +120,7 @@ class Config
                 $config[$key] = $_ENV[$envKey] ?? (getenv($envKey) === false ? null : getenv($envKey));
             }
         }
+
         return $config;
     }
-
 }

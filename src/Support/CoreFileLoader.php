@@ -15,6 +15,9 @@ namespace Naf\Support;
 final class CoreFileLoader
 {
     /** @var list<string> */
+    public const array CONFIG_SOURCE_FILES = ['app/config_sources.php', 'src/config_sources.php'];
+
+    /** @var list<string> */
     public const array CONFIG_FILES = ['app/config.php', 'src/config.php'];
 
     /** @var list<string> */
@@ -82,6 +85,10 @@ final class CoreFileLoader
 
         if (null !== $config = self::file($root, self::CONFIG_FILES)) {
             $plugin->addConfigPath($config);
+        }
+
+        if (null !== $sources = self::file($root, self::CONFIG_SOURCE_FILES)) {
+            $plugin->addConfigSourceFile($sources);
         }
 
         if (null !== $routes = self::file($root, self::ROUTE_FILES)) {
