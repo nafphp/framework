@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
+use InvalidArgumentException;
 use Naf\Core\App;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
@@ -41,6 +42,15 @@ final class ServerRequestTest extends TestCase
                 self::assertSame('application/json', $request->getHeaderLine('Accept'));
                 self::assertSame(['session' => 'example'], $request->getCookieParams());
                 self::assertSame(['draft' => '1'], $request->getQueryParams());
+            }
+            foreach (['other@board.example.test', 'board.example.test/path', 'board.example.test?query', 'board.example.test#fragment'] as $invalid) {
+                $_SERVER['HTTP_HOST'] = $invalid;
+                try {
+                    $create->invoke($app);
+                    self::fail('An invalid Host must not be reinterpreted as a different authority.');
+                } catch (InvalidArgumentException $error) {
+                    self::assertSame('Host must contain only an authority.', $error->getMessage());
+                }
             }
         } finally {
             [$_SERVER, $_COOKIE, $_GET, $_POST, $_FILES] = $previous;
