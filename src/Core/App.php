@@ -562,6 +562,16 @@ class App
             $psr17Factory, // StreamFactory
         );
 
-        return $creator->fromGlobals();
+        $request = $creator->fromGlobals();
+        $host    = $request->getServerParams()['HTTP_HOST'] ?? null;
+        if (is_string($host) && $host !== '') {
+            // The browser authority wins over a container's SERVER_PORT. The
+            // creator also appends Host to the one synthesized by the factory.
+            $authority = $psr17Factory->createUri($request->getUri()->getScheme() . '://' . $host);
+            $uri       = $request->getUri()->withHost($authority->getHost())->withPort($authority->getPort());
+            $request   = $request->withUri($uri)->withHeader('Host', $host);
+        }
+
+        return $request;
     }
 }
