@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Naf\Core;
 
+use Nyholm\Psr7\Stream;
 use Psr\Http\Message\ResponseInterface;
 use Throwable;
 
@@ -19,6 +20,32 @@ use function Naf\log;
  */
 final class ResponseEmitter
 {
+    /** Apply HTTP rules for responses that cannot carry content, without reading their stream. */
+    public static function prepare(ResponseInterface $response, ?string $method = null): ResponseInterface
+    {
+        $status = $response->getStatusCode();
+        $head   = strtoupper($method ?? ($_SERVER['REQUEST_METHOD'] ?? '')) === 'HEAD';
+
+        if (!$head && $status >= 200 && !in_array($status, [204, 205, 304], true)) {
+            return $response;
+        }
+
+        if ($status < 200 || $status === 204) {
+            $response = $response->withoutHeader('Content-Length');
+        } elseif ($status === 205) {
+            $response = $response->withHeader('Content-Length', '0');
+        } elseif ($head && $status !== 304 && !$response->hasHeader('Content-Length')) {
+            $size = $response->getBody()->getSize();
+            // A previously normalized HEAD body is empty too. Do not turn an
+            // originally unknown representation length into Content-Length: 0.
+            if ($size !== null && $size > 0) {
+                $response = $response->withHeader('Content-Length', (string) $size);
+            }
+        }
+
+        return $response->withoutHeader('Transfer-Encoding')->withBody(Stream::create(''));
+    }
+
     /**
      * Emit a response and run the RESPONSE_HEADER, RESPONSE_BODY and
      * RESPONSE_END events
@@ -27,6 +54,7 @@ final class ResponseEmitter
      */
     public static function send(ResponseInterface $response): never
     {
+        $response = self::prepare($response);
         self::clearOutputBuffers();
 
         if (headers_sent()) {
@@ -37,6 +65,7 @@ final class ResponseEmitter
         // Before the head is written a failing listener can still be reported
         // normally, so this dispatch is allowed to throw.
         $response = event()->dispatchResponse(Event::RESPONSE_HEADER, $response);
+        $response = self::prepare($response);
 
         self::writeHead($response);
 
@@ -78,6 +107,7 @@ final class ResponseEmitter
      */
     public static function emit(ResponseInterface $response): never
     {
+        $response = self::prepare($response);
         self::clearOutputBuffers();
 
         if (!headers_sent()) {

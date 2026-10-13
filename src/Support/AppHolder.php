@@ -8,6 +8,7 @@ use Naf\Core\App;
 use Naf\Decorators\AutoResolvingContainer;
 use Naf\Core\Container;
 
+/** @internal Framework implementation; use the documented application and plugin APIs. */
 class AppHolder
 {
     private static ?App $instance = null;

@@ -15,8 +15,10 @@ class Event
     const string ROUTE_MATCHED = 'route.matched';           // Route has matched
     const string ROUTE_NOT_FOUND = 'route.not_found';       // Route not found
     const string REQUEST_START = 'request.start';           // Before the app starts to handle the request
-    const string REQUEST_BODY = 'request.body';             // Before the body is parsed
-    const string REQUEST_END = 'request.end';               // Not in use yet
+    /** @deprecated Reserved compatibility constant; never dispatched by the core. */
+    const string REQUEST_BODY = 'request.body';
+    /** @deprecated Reserved compatibility constant; never dispatched by the core. */
+    const string REQUEST_END = 'request.end';
     const string RESPONSE_SEND = 'response.send';           // Before the app starts to send a response
     const string RESPONSE_BODY = 'response.body';           // Before the body is sent to the client
     const string RESPONSE_HEADER = 'response.header';       // Before the headers are sent to the client

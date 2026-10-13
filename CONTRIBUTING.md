@@ -69,11 +69,15 @@ fixtures. Install development dependencies, validate the manifests and run it:
 composer install
 composer validate --strict
 composer test
+composer analyse
+composer test:http
+composer test:plugins
 ```
 
 Add regression coverage for behavior changes. Boot, response emission and error handling
 also need a real HTTP/subprocess check; an in-process response object test does not verify
-headers on the wire. There is currently no Composer `analyse` script. Consult
+headers on the wire. PHPStan checks PHP 8.3 compatibility at level 5; plugin tests
+exercise published plugins against the current core. Consult
 [AGENTS.md](AGENTS.md) for test boundaries and documentation verification.
 
 ---

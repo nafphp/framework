@@ -5,6 +5,7 @@ namespace Naf\Core;
 
 use Naf\Decorators\AutoResolvingContainer;
 use Naf\Exceptions\DispatcherException;
+use Naf\Exceptions\MethodNotAllowedException;
 use Naf\Exceptions\RouteNotFoundException;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -55,13 +56,19 @@ class Dispatcher
      */
     public function forward(ServerRequestInterface $request): ResponseInterface
     {
-        $method = $request->getMethod() ?? 'GET';
+        $method = $request->getMethod();
         $uri = $request->getUri()->getPath();
 
         try {
             $route = $this->route->find($uri, $method);
+        } catch (MethodNotAllowedException $e) {
+            if ($method === 'OPTIONS') {
+                return \Naf\response('', 204, ['Allow' => implode(', ', $e->getAllowedMethods())]);
+            }
+
+            throw $e;
         } catch (RouteNotFoundException $e) {
-            if ($uri === '/' && $method === 'GET') {
+            if ($uri === '/' && in_array($method, ['GET', 'HEAD'], true) && $this->route->all() === []) {
                 return simple_render(__DIR__ . '/../Resources/views/naf_welcome.phtml');
             }
             throw $e;
@@ -99,7 +106,6 @@ class Dispatcher
         }
 
         if ($response instanceof ResponseInterface) return $response;
-        if ($response === -1) exit(0);
         throw new DispatcherException('No valid response returned.');
     }
 

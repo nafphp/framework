@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Naf\Support;
 
+/** @internal Framework implementation; use the documented application and plugin APIs. */
 class Stopwatch
 {
 
@@ -14,24 +15,24 @@ class Stopwatch
             $id = time() . uniqid();
         }
 
-        if (isset(static::$data[$id])) {
+        if (isset(self::$data[$id])) {
             throw new \RuntimeException('Stopwatch already started.');
         }
 
-        static::$data[$id] = microtime(true);
+        self::$data[$id] = microtime(true);
     }
 
     public static function stop(?string $id = null): string
     {
         $startTime = null;
 
-        if ($id && isset(static::$data[$id])) {
-            $startTime = static::$data[$id];
-            unset(static::$data[$id]);
+        if ($id && isset(self::$data[$id])) {
+            $startTime = self::$data[$id];
+            unset(self::$data[$id]);
         }
 
-        if (null === $id && count(static::$data) === 1) {
-            $startTime = array_pop(static::$data);
+        if (null === $id && count(self::$data) === 1) {
+            $startTime = array_pop(self::$data);
         }
 
         if (!$startTime) {
@@ -40,7 +41,7 @@ class Stopwatch
 
         $endTime = microtime(true);
 
-        return static::format($endTime - $startTime);
+        return self::format($endTime - $startTime);
     }
 
     private static function format(float $number): string

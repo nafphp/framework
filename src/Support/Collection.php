@@ -7,9 +7,7 @@ namespace Naf\Support;
 class Collection
 {
 
-    /** @template T
-     *  @var array<string, T>
-     */
+    /** @var array<array-key, mixed> */
     protected array $items = [];
 
     public function __construct(array $items = [])

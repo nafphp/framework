@@ -4,6 +4,7 @@ namespace Tests\Unit;
 
 use Naf\Core\Route;
 use Naf\Exceptions\RouteNotFoundException;
+use Naf\Exceptions\MethodNotAllowedException;
 use Tests\NafTestCase;
 use function Naf\app;
 
@@ -28,7 +29,7 @@ class RouteTest extends NafTestCase
 
     public function testShouldIgnoreWrongMethod()
     {
-        $this->expectException(RouteNotFoundException::class);
+        $this->expectException(MethodNotAllowedException::class);
         $route = new Route();
         $route->add('GET', '/test', function() { return 'test'; });
         $route->find('/test', 'POST');

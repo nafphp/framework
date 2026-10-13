@@ -10,27 +10,65 @@ permissions:
   contents: read
 
 jobs:
-  build:
-
+  test:
+    name: PHP ${{ matrix.php }} / ${{ matrix.dependencies }}
     runs-on: ubuntu-latest
-
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.3', '8.4', '8.5']
+        dependencies: [lowest, latest]
     steps:
-    - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: mbstring, dom, xml, xmlwriter
+          coverage: none
+          tools: composer:v2
+      - run: composer validate --strict
+      - name: Resolve dependencies
+        run: |
+          if [ '${{ matrix.dependencies }}' = lowest ]; then
+            composer update --prefer-lowest --prefer-stable --prefer-dist --no-progress
+          else
+            composer update --prefer-stable --prefer-dist --no-progress
+          fi
+      - run: composer test
+      - run: composer analyse
+      - run: composer test:http
+      - run: composer test:plugins
 
-    - name: Validate composer.json and composer.lock
-      run: composer validate --strict
+  locked:
+    name: Locked dependencies / PHP 8.3
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, dom, xml, xmlwriter
+          coverage: none
+          tools: composer:v2
+      - run: composer install --prefer-dist --no-progress
+      - run: composer test
+      - run: composer analyse
+      - run: composer test:http
 
-    - name: Cache Composer packages
-      id: composer-cache
-      uses: actions/cache@v6
-      with:
-        path: vendor
-        key: ${{ runner.os }}-php-${{ hashFiles('**/composer.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-php-
-
-    - name: Install dependencies
-      run: composer install --prefer-dist --no-progress
-
-    - name: Run test suite
-      run: composer run-script test
+  core-without-pdo:
+    name: Core installation without PDO
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: :pdo, :pdo_sqlite, :pdo_mysql, :pdo_pgsql
+          coverage: none
+          tools: composer:v2
+      - name: Install and exercise the core without PDO
+        run: |
+          php -r 'if (extension_loaded("pdo")) { exit(1); }'
+          composer install --no-dev --prefer-dist --no-progress
+          composer check-platform-reqs --no-dev
+          composer test:http

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Naf\Core;
 
+use Naf\Exceptions\MethodNotAllowedException;
 use Naf\Exceptions\RouteNotFoundException;
 use function Naf\event;
 
@@ -73,24 +74,52 @@ class Route
      *
      * @return array|null
      * @throws RouteNotFoundException
+     * @throws MethodNotAllowedException
      */
     public function find(string $uri, string $method): ?array
     {
+        $this->currentName = null;
+        $method           = strtoupper($method);
         event()->dispatch(Event::ROUTE_MATCHING, $uri, $method);
+        $allowed  = [];
+        $fallback = null;
+
         foreach ($this->routes as $name => $route) {
-            if ($route['method'] !== strtoupper($method)) {
-                continue;
-            }
             $pattern = '#^' . self::pattern($route['path']) . '$#';
             if (preg_match($pattern, $uri, $matches)) {
+                $allowed[] = $route['method'];
+                if ($route['method'] === 'GET') {
+                    $allowed[] = 'HEAD';
+                }
                 array_shift($matches);
                 preg_match_all('#\{([^}]+)\}#', $route['path'], $paramNames);
                 $params = array_combine($paramNames[1], $matches);
-                $this->currentName = $name;
-                event()->dispatch(Event::ROUTE_MATCHED, $route);
-                return ['action' => $route['action'], 'params' => $params, 'name' => $name,];
+                $match  = ['action' => $route['action'], 'params' => $params, 'name' => $name];
+                if ($route['method'] === $method) {
+                    $this->currentName = $name;
+                    event()->dispatch(Event::ROUTE_MATCHED, $route);
+
+                    return $match;
+                }
+                if ($method === 'HEAD' && $route['method'] === 'GET' && $fallback === null) {
+                    $fallback = [$match, $route];
+                }
             }
         }
+
+        if ($fallback !== null) {
+            [$match, $route]   = $fallback;
+            $this->currentName = $match['name'];
+            event()->dispatch(Event::ROUTE_MATCHED, $route);
+
+            return $match;
+        }
+        if ($allowed !== []) {
+            $allowed[] = 'OPTIONS';
+
+            throw new MethodNotAllowedException(array_values(array_unique($allowed)));
+        }
+
         event()->dispatch(Event::ROUTE_NOT_FOUND, $uri, $method);
         throw new RouteNotFoundException();
     }
@@ -142,10 +171,19 @@ class Route
         foreach ($this->routes as $routeName => $route) {
             if ($routeName === $name) {
                 $url = $route['path'];
-                foreach ($params as $key => $value) {
-                    $url = str_replace('{' . $key . '}', (string)$value, $url);
+                preg_match_all('#\{([^}]+)\}#', $url, $placeholders);
+                $replacements = [];
+                foreach ($placeholders[1] as $placeholder) {
+                    if (!array_key_exists($placeholder, $params)) {
+                        throw new \InvalidArgumentException("Missing parameter '{$placeholder}' for route '{$name}'.");
+                    }
+                    if (!is_string($params[$placeholder]) && !is_int($params[$placeholder])) {
+                        throw new \InvalidArgumentException("Parameter '{$placeholder}' for route '{$name}' must be a string or integer.");
+                    }
+                    $replacements['{' . $placeholder . '}'] = (string) $params[$placeholder];
                 }
-                return $url;
+
+                return strtr($url, $replacements);
             }
         }
         throw new RouteNotFoundException("Route '{$name}' not found.");
@@ -164,6 +202,12 @@ class Route
     public function current():? string
     {
         return $this->currentName;
+    }
+
+    /** Clear request-specific matching state while retaining registered routes. */
+    public function clearCurrent(): void
+    {
+        $this->currentName = null;
     }
 
     public function active(string|array $name, string $class = 'active'): string

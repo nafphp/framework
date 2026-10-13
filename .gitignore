@@ -6,3 +6,4 @@ coverage-report
 docs/.venv
 tests/Fixtures/logs/*
 .DS_Store
+.phpstan-cache/

@@ -27,7 +27,6 @@
   },
   "require": {
     "php": ">=8.3",
-    "ext-pdo": "*",
     "ext-json": "*",
     "psr/log": "^3.0",
     "nyholm/psr7": "^1.8",
@@ -37,10 +36,19 @@
     "psr/container": "^2.0"
   },
   "require-dev": {
+    "phpstan/phpstan": "^2.1",
     "phpunit/phpunit": "^12.1",
     "phpunit/php-code-coverage": "^12.1"
   },
   "scripts": {
-    "test": "phpunit --colors=always"
+    "test": "@php vendor/bin/phpunit --colors=always",
+    "analyse": "@php vendor/bin/phpstan analyse --no-progress",
+    "test:http": "@php tests/Http/run.php",
+    "test:plugins": "@php tests/Plugins/run.php"
+  },
+  "config": {
+    "platform": {
+      "php": "8.3.0"
+    }
   }
 }
