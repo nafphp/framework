@@ -4,23 +4,19 @@ namespace Tests\Unit;
 
 use Naf\Core\App;
 use Naf\Core\Container;
-use Naf\Core\Dispatcher;
-use Naf\Core\Environment;
 use Naf\Support\Plugin;
-use Psr\Http\Message\ServerRequestInterface;
 use ReflectionClass;
 use ReflectionMethod;
-use RuntimeException;
 use Tests\NafTestCase;
 
 class AppTest extends NafTestCase
 {
     public function testHasPluginHonoursVersionConstraint()
     {
-        $app = new App(new Container());
+        $app        = new App(new Container());
         $reflection = new ReflectionClass($app);
 
-        $pluginsProp = $reflection->getProperty('plugins');
+        $pluginsProp    = $reflection->getProperty('plugins');
         $pluginInstance = new Plugin('naf/database');
         $pluginInstance->setVersion('0.1.2');
 
@@ -45,13 +41,13 @@ class AppTest extends NafTestCase
         $bootstrap = tempnam(sys_get_temp_dir(), 'plugin_');
         file_put_contents(
             $bootstrap,
-            '<?php $GLOBALS["seenDuringBoot"] = count(\Naf\app()->getPlugins());'
+            '<?php $GLOBALS["seenDuringBoot"] = count(\Naf\app()->getPlugins());',
         );
 
         $first = new Plugin('test/first');
         $first->setBootstrapFile($bootstrap);
 
-        $reflection = new ReflectionClass($app);
+        $reflection  = new ReflectionClass($app);
         $pluginsProp = $reflection->getProperty('plugins');
         $pluginsProp->setValue($app, [
             'test/first'  => $first,
@@ -117,5 +113,4 @@ class AppTest extends NafTestCase
         $this->assertTrue($guard->ipBlacklist('203.0.113.7'));
         $this->assertTrue($guard->userAgentBlacklist('curl/8'));
     }
-
 }

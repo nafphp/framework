@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Support;
 
+use FilesystemIterator;
 use RuntimeException;
 
 /** Disposable real HTTP host, also usable after a --no-dev installation. */
@@ -19,7 +20,7 @@ final class HttpHost
         if ($socket === false) {
             throw new RuntimeException($error, $errno);
         }
-        $address = stream_socket_get_name($socket, false);
+        $address    = stream_socket_get_name($socket, false);
         $this->port = (int) substr($address, strrpos($address, ':') + 1);
         fclose($socket);
     }
@@ -66,18 +67,18 @@ final class HttpHost
         }
         $wire .= 'Content-Length: ' . strlen($body) . "\r\n\r\n" . $body;
         fwrite($socket, $wire);
-        $raw = stream_get_contents($socket);
+        $raw      = stream_get_contents($socket);
         $timedOut = stream_get_meta_data($socket)['timed_out'];
         fclose($socket);
         if ($timedOut || $raw === false || !str_contains($raw, "\r\n\r\n")) {
             throw new RuntimeException('Incomplete HTTP response.');
         }
         [$head, $body] = explode("\r\n\r\n", $raw, 2);
-        $lines = explode("\r\n", $head);
+        $lines         = explode("\r\n", $head);
         preg_match('/^HTTP\/\S+ (\d{3})/', array_shift($lines), $status);
         $responseHeaders = [];
         foreach ($lines as $line) {
-            [$name, $value] = explode(':', $line, 2);
+            [$name, $value]                       = explode(':', $line, 2);
             $responseHeaders[strtolower($name)][] = trim($value);
         }
 
@@ -98,7 +99,7 @@ final class HttpHost
         if (!is_dir($root)) {
             return;
         }
-        foreach (new \FilesystemIterator($root) as $file) {
+        foreach (new FilesystemIterator($root) as $file) {
             if ($file->isDir() && !$file->isLink()) {
                 self::remove($file->getPathname());
             } else {

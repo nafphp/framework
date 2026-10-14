@@ -1,12 +1,14 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Naf\Support;
 
+use RuntimeException;
+
 /** @internal Framework implementation; use the documented application and plugin APIs. */
 class Stopwatch
 {
-
     private static array $data = [];
 
     public static function start(?string $id = null): void
@@ -16,7 +18,7 @@ class Stopwatch
         }
 
         if (isset(self::$data[$id])) {
-            throw new \RuntimeException('Stopwatch already started.');
+            throw new RuntimeException('Stopwatch already started.');
         }
 
         self::$data[$id] = microtime(true);
@@ -36,7 +38,7 @@ class Stopwatch
         }
 
         if (!$startTime) {
-            throw new \RuntimeException('Stopwatch not started.');
+            throw new RuntimeException('Stopwatch not started.');
         }
 
         $endTime = microtime(true);
@@ -48,5 +50,4 @@ class Stopwatch
     {
         return number_format($number, 5);
     }
-
 }

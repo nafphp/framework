@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace Naf\Core;
 
+use InvalidArgumentException;
+use LogicException;
 use Naf\Exceptions\MethodNotAllowedException;
 use Naf\Exceptions\RouteNotFoundException;
+
 use function Naf\event;
 
 class Route
 {
-    protected array $routes = [];
+    protected array $routes      = [];
     private ?string $currentName = null;
 
     /**
@@ -26,7 +29,7 @@ class Route
     public function add(string $method, string $path, array|callable $action, ?string $name = null): Route
     {
         if (count($this->routes) > 0 && empty($name)) {
-            throw new \LogicException('You can\'t add routes without a name when there is more than one route configured.');
+            throw new LogicException('You can\'t add routes without a name when there is more than one route configured.');
         }
 
         // An unnamed route is the sole route, and it is keyed by the empty string
@@ -34,7 +37,7 @@ class Route
         $this->routes[$name ?? ''] = [
             'method' => $method,
             'path'   => $path,
-            'action' => $action
+            'action' => $action,
         ];
 
         return $this;
@@ -79,7 +82,7 @@ class Route
     public function find(string $uri, string $method): ?array
     {
         $this->currentName = null;
-        $method           = strtoupper($method);
+        $method            = strtoupper($method);
         event()->dispatch(Event::ROUTE_MATCHING, $uri, $method);
         $allowed  = [];
         $fallback = null;
@@ -175,10 +178,10 @@ class Route
                 $replacements = [];
                 foreach ($placeholders[1] as $placeholder) {
                     if (!array_key_exists($placeholder, $params)) {
-                        throw new \InvalidArgumentException("Missing parameter '{$placeholder}' for route '{$name}'.");
+                        throw new InvalidArgumentException("Missing parameter '{$placeholder}' for route '{$name}'.");
                     }
                     if (!is_string($params[$placeholder]) && !is_int($params[$placeholder])) {
-                        throw new \InvalidArgumentException("Parameter '{$placeholder}' for route '{$name}' must be a string or integer.");
+                        throw new InvalidArgumentException("Parameter '{$placeholder}' for route '{$name}' must be a string or integer.");
                     }
                     $replacements['{' . $placeholder . '}'] = (string) $params[$placeholder];
                 }
@@ -199,7 +202,7 @@ class Route
         return $this->routes;
     }
 
-    public function current():? string
+    public function current(): ?string
     {
         return $this->currentName;
     }
@@ -218,11 +221,10 @@ class Route
 
         if (is_array($name) && in_array($this->currentName, $name, true)) {
             return $class;
-        } else if($this->currentName === $name) {
+        } elseif ($this->currentName === $name) {
             return $class;
         }
 
         return '';
     }
-
 }

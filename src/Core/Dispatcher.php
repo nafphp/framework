@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Naf\Core;
@@ -9,6 +10,7 @@ use Naf\Exceptions\MethodNotAllowedException;
 use Naf\Exceptions\RouteNotFoundException;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+
 use function Naf\app;
 use function Naf\event;
 use function Naf\simple_render;
@@ -57,7 +59,7 @@ class Dispatcher
     public function forward(ServerRequestInterface $request): ResponseInterface
     {
         $method = $request->getMethod();
-        $uri = $request->getUri()->getPath();
+        $uri    = $request->getUri()->getPath();
 
         try {
             $route = $this->route->find($uri, $method);
@@ -75,11 +77,11 @@ class Dispatcher
         }
 
         $response = null;
-        $action = $route['action'];
+        $action   = $route['action'];
 
         if (is_array($action)) {
             [$class, $classAction] = $action;
-            $container = app()->container();
+            $container             = app()->container();
 
             // A bound target class is the one the application wants to run, so
             // prefer it over building the class named in the route. Everything
@@ -92,21 +94,22 @@ class Dispatcher
 
             if (!is_object($controller) || !is_callable([$controller, $classAction])) {
                 throw new DispatcherException(
-                    sprintf('Controller %s has no callable action %s.', $class, $classAction)
+                    sprintf('Controller %s has no callable action %s.', $class, $classAction),
                 );
             }
 
             event()->dispatch(Event::CONTROLLER_CALLING, $request, $controller, $action);
             $response = $controller->$classAction(...$route['params'] ?? null);
             event()->dispatch(Event::CONTROLLER_CALLED, $request, $controller, $action, $response);
-        } else if (is_callable($action)) {
+        } elseif (is_callable($action)) {
             event()->dispatch(Event::CONTROLLER_CALLING, $request, null, $action);
             $response = $action(...$route['params'] ?? null);
             event()->dispatch(Event::CONTROLLER_CALLED, $request, null, $action, $response);
         }
 
-        if ($response instanceof ResponseInterface) return $response;
+        if ($response instanceof ResponseInterface) {
+            return $response;
+        }
         throw new DispatcherException('No valid response returned.');
     }
-
 }

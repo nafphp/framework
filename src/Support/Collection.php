@@ -6,7 +6,6 @@ namespace Naf\Support;
 
 class Collection
 {
-
     /** @var array<array-key, mixed> */
     protected array $items = [];
 
@@ -35,6 +34,7 @@ class Collection
     public function add(string $key, mixed $value = null): static
     {
         $this->items[$key] = $value;
+
         return $this;
     }
 

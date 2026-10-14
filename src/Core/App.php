@@ -6,6 +6,7 @@ namespace Naf\Core;
 
 use Composer\InstalledVersions;
 use InvalidArgumentException;
+use LogicException;
 use Naf\Contracts\ConfigurationSourceInterface;
 use Naf\Contracts\MutableContainerInterface;
 use Naf\Exceptions\MethodNotAllowedException;
@@ -80,11 +81,11 @@ class App
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         if ($this->handlingRequest) {
-            throw new \LogicException('An application cannot handle overlapping requests.');
+            throw new LogicException('An application cannot handle overlapping requests.');
         }
 
         $this->handlingRequest = true;
-        $started              = hrtime(true);
+        $started               = hrtime(true);
         AppHolder::set($this);
 
         try {
@@ -370,8 +371,8 @@ class App
             $merged = array_replace_recursive($coreConfig, $pluginConfig, $appConfig);
 
             $configuration = new Config($merged);
-            $sourceFiles = $this->collectPluginResources('configSourceFiles');
-            $hostSources = CoreFileLoader::file($this->getBasePath(), CoreFileLoader::CONFIG_SOURCE_FILES);
+            $sourceFiles   = $this->collectPluginResources('configSourceFiles');
+            $hostSources   = CoreFileLoader::file($this->getBasePath(), CoreFileLoader::CONFIG_SOURCE_FILES);
             if ($hostSources !== null && !in_array($hostSources, $sourceFiles, true)) {
                 $sourceFiles[] = $hostSources;
             }
@@ -388,6 +389,7 @@ class App
                     $configuration->overlay($source->name(), $source->load($this->getBasePath()));
                 }
             }
+
             return $configuration;
         });
 

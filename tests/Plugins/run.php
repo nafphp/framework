@@ -12,9 +12,9 @@ mkdir($root . '/app');
 mkdir($root . '/app/views');
 mkdir($root . '/translations');
 $manifest = [
-    'name' => 'test/naf-plugin-contracts',
+    'name'         => 'test/naf-plugin-contracts',
     'repositories' => [['type' => 'path', 'url' => dirname(__DIR__, 2), 'options' => ['symlink' => true, 'versions' => ['naf/framework' => '0.2.12']]]],
-    'require' => ['php' => '>=8.3', 'naf/framework' => '*', 'naf/form' => '^0.2.4', 'naf/session' => '^0.2.3', 'naf/view' => '^0.2.3', 'naf/i18n' => '^0.2'],
+    'require'      => ['php' => '>=8.3', 'naf/framework' => '*', 'naf/form' => '^0.2.4', 'naf/session' => '^0.2.3', 'naf/view' => '^0.2.3', 'naf/i18n' => '^0.2'],
 ];
 file_put_contents($root . '/composer.json', json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 file_put_contents($root . '/.env', "APP_ENV=test\n");
@@ -33,7 +33,7 @@ PHP);
 $host = null;
 
 try {
-    $host = new HttpHost($root);
+    $host    = new HttpHost($root);
     $process = proc_open(['composer', 'install', '--no-dev', '--no-interaction', '--prefer-dist', '--no-progress'], [0 => ['pipe', 'r'], 1 => ['file', $root . '/composer.log', 'a'], 2 => ['file', $root . '/composer.log', 'a']], $pipes, $root);
     if (!is_resource($process)) {
         throw new RuntimeException('Could not start Composer.');

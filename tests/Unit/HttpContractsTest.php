@@ -17,10 +17,12 @@ use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ServerRequestInterface;
-use Psr\Log\NullLogger;
 use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use ReflectionProperty;
+use RuntimeException;
 use Tests\NafTestCase;
+use Throwable;
 use TypeError;
 
 final class HttpContractsTest extends NafTestCase
@@ -50,12 +52,12 @@ final class HttpContractsTest extends NafTestCase
             'id' => $id, 'query' => \Naf\param()->get('filter'),
         ]), 'users.show');
 
-        $first = (new ServerRequest('GET', '/users/42'))->withQueryParams(['filter' => 'first']);
+        $first    = (new ServerRequest('GET', '/users/42'))->withQueryParams(['filter' => 'first']);
         $response = $this->application->handle($first);
         self::assertSame(['id' => '42', 'query' => 'first'], json_decode((string) $response->getBody(), true));
         self::assertSame('users.show', $route->current());
 
-        $second = (new ServerRequest('GET', '/users/7'))->withQueryParams(['filter' => 'second']);
+        $second   = (new ServerRequest('GET', '/users/7'))->withQueryParams(['filter' => 'second']);
         $response = $this->application->handle($second);
         self::assertSame(['id' => '7', 'query' => 'second'], json_decode((string) $response->getBody(), true));
         self::assertSame($second, $this->application->container()->get(ServerRequestInterface::class));
@@ -67,7 +69,7 @@ final class HttpContractsTest extends NafTestCase
     public function testMethodErrorsRetainAllowWhenAnExceptionListenerRendersJson(): void
     {
         $this->application->container()->get(Route::class)->add('GET', '/items', static fn() => new Response(), 'items');
-        $this->application->container()->get(EventManager::class)->listen(Event::EXCEPTION, static function (\Throwable $exception) {
+        $this->application->container()->get(EventManager::class)->listen(Event::EXCEPTION, static function (Throwable $exception) {
             self::assertInstanceOf(MethodNotAllowedException::class, $exception);
 
             return \Naf\json(['error' => 'method'], 405);
@@ -81,7 +83,7 @@ final class HttpContractsTest extends NafTestCase
 
     public function testAutomaticOptionsDoesNotInvokeTheGetHandler(): void
     {
-        $this->application->container()->get(Route::class)->add('GET', '/items', static fn() => throw new \RuntimeException('GET called'), 'items');
+        $this->application->container()->get(Route::class)->add('GET', '/items', static fn() => throw new RuntimeException('GET called'), 'items');
         $response = $this->application->handle(new ServerRequest('OPTIONS', '/items'));
         self::assertSame(204, $response->getStatusCode());
         self::assertSame('GET, HEAD, OPTIONS', $response->getHeaderLine('Allow'));
@@ -115,10 +117,12 @@ final class HttpContractsTest extends NafTestCase
 
     public function testRequestAndFinalizationEventsRunOnceWithoutEmissionEvents(): void
     {
-        $seen = [];
+        $seen   = [];
         $events = $this->application->container()->get(EventManager::class);
         foreach ([Event::REQUEST_START, Event::CONTROLLER_CALLING, Event::CONTROLLER_CALLED, Event::RESPONSE_SEND, Event::RESPONSE_HEADER, Event::RESPONSE_END] as $event) {
-            $events->listen($event, static function () use (&$seen, $event): void { $seen[] = $event; });
+            $events->listen($event, static function () use (&$seen, $event): void {
+                $seen[] = $event;
+            });
         }
         $this->application->container()->get(Route::class)->add('GET', '/items', static fn() => new Response(200), 'items');
         $this->application->handle(new ServerRequest('GET', '/items'));
@@ -147,8 +151,15 @@ final class HttpContractsTest extends NafTestCase
     public function testReadOnlyPsrContainersAreRejectedByConstructorTypesBeforeBoot(): void
     {
         $readOnly = new class implements ContainerInterface {
-            public function get(string $id): mixed { throw new \RuntimeException('unused'); }
-            public function has(string $id): bool { return false; }
+            public function get(string $id): mixed
+            {
+                throw new RuntimeException('unused');
+            }
+
+            public function has(string $id): bool
+            {
+                return false;
+            }
         };
         foreach ([App::class, AutoResolvingContainer::class] as $class) {
             try {
