@@ -42,14 +42,10 @@ class App
     /**
      * Initialize the application with a dependency container
      *
-     * @param ContainerInterface $container Must also implement MutableContainerInterface
+     * @param MutableContainerInterface $container The writable application container
      */
-    public function __construct(ContainerInterface $container)
+    public function __construct(MutableContainerInterface $container)
     {
-        if (!$container instanceof MutableContainerInterface) {
-            throw new InvalidArgumentException('The application container must implement ' . MutableContainerInterface::class . '.');
-        }
-
         $this->container = $container;
         AppHolder::set($this);
         $this->boot();

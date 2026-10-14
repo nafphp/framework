@@ -21,6 +21,7 @@ use Psr\Log\NullLogger;
 use Psr\Log\LoggerInterface;
 use ReflectionProperty;
 use Tests\NafTestCase;
+use TypeError;
 
 final class HttpContractsTest extends NafTestCase
 {
@@ -143,7 +144,7 @@ final class HttpContractsTest extends NafTestCase
         $route->url('items', ['id' => []]);
     }
 
-    public function testReadOnlyPsrContainersAreRejectedBeforeBoot(): void
+    public function testReadOnlyPsrContainersAreRejectedByConstructorTypesBeforeBoot(): void
     {
         $readOnly = new class implements ContainerInterface {
             public function get(string $id): mixed { throw new \RuntimeException('unused'); }
@@ -153,11 +154,13 @@ final class HttpContractsTest extends NafTestCase
             try {
                 new $class($readOnly);
                 self::fail('A writable container is required.');
-            } catch (InvalidArgumentException $exception) {
+            } catch (TypeError $exception) {
+                self::assertStringContainsString($class . '::__construct()', $exception->getMessage());
                 self::assertStringContainsString('MutableContainerInterface', $exception->getMessage());
             }
+
+            self::assertSame($this->application, \Naf\app());
         }
-        self::assertSame($this->application, \Naf\app());
     }
 
     public function testSeparateApplicationsCanHandleRequestsWithoutSharedTimers(): void

@@ -69,8 +69,9 @@ adding abstractions. Do not add application-specific dependencies to the core.
   `set()` clears that binding's cached value, not references held by existing consumers.
   Factories receive the wrapped base container; capture the decorator if they need `make()`.
   Both built-in containers implement `MutableContainerInterface`, which extends PSR-11 with
-  `set()` and `reset()`. App and the autowiring decorator validate this writable contract
-  before boot; custom writable containers must implement it.
+  `set()` and `reset()`. App and the autowiring decorator require this interface directly
+  in their constructor types. PHP rejects unsupported containers with `TypeError` before
+  boot; custom writable containers must implement the interface.
 - The default dispatcher uses constructor injection for controllers, but route arguments
   are named parameters, not action-method injection. Keep `{id}` aligned with `$id`.
   Give every route a unique name; adding an unnamed route after another route is rejected.

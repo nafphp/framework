@@ -4,12 +4,10 @@ declare(strict_types=1);
 
 namespace Naf\Decorators;
 
-use InvalidArgumentException;
 use Naf\Contracts\MutableContainerInterface;
 use Naf\Exceptions\ContainerException;
 use Naf\Exceptions\ServiceNotFoundException;
 use Psr\Container\ContainerExceptionInterface;
-use Psr\Container\ContainerInterface;
 use ReflectionClass;
 use ReflectionException;
 use ReflectionNamedType;
@@ -32,14 +30,10 @@ class AutoResolvingContainer implements MutableContainerInterface
     private array $reflectionCache = [];
 
     /**
-     * @param ContainerInterface $container Must also implement MutableContainerInterface
+     * @param MutableContainerInterface $container The base container to decorate
      */
-    public function __construct(ContainerInterface $container)
+    public function __construct(MutableContainerInterface $container)
     {
-        if (!$container instanceof MutableContainerInterface) {
-            throw new InvalidArgumentException('The base container must implement ' . MutableContainerInterface::class . '.');
-        }
-
         $this->container = $container;
     }
 
