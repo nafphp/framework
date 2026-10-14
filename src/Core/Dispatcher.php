@@ -13,6 +13,7 @@ use Psr\Http\Message\ServerRequestInterface;
 
 use function Naf\app;
 use function Naf\event;
+use function Naf\response;
 use function Naf\simple_render;
 
 /**
@@ -23,49 +24,27 @@ use function Naf\simple_render;
  */
 class Dispatcher
 {
-    /**
-     * Route instance used for matching requests to handlers.
-     *
-     * @var Route
-     */
-    private Route $route;
-
-    /**
-     * Initializes a new dispatcher instance.
-     *
-     * @param Route $route The route instance for matching and handling requests
-     */
-    public function __construct(Route $route)
+    public function __construct(private Route $route)
     {
-        $this->route = $route;
     }
 
     /**
      * Forwards the HTTP request to its matching route handler.
      *
-     * Processes the request by:
-     * - Matching the URI and method against registered routes
-     * - Handling a special case for a root path ('/')
-     * - Executing controller actions or callables
-     * - Dispatching controller lifecycle events
-     * - Validating and returning the response
-     *
-     * @param ServerRequestInterface $request The incoming HTTP request
-     *
-     * @return ResponseInterface Response from the route handler
      * @throws RouteNotFoundException If no matching route is found
+     * @throws MethodNotAllowedException If the path does not accept the method
      * @throws DispatcherException If handler returns invalid response
      */
     public function forward(ServerRequestInterface $request): ResponseInterface
     {
-        $method = $request->getMethod();
+        $method = strtoupper($request->getMethod());
         $uri    = $request->getUri()->getPath();
 
         try {
             $route = $this->route->find($uri, $method);
         } catch (MethodNotAllowedException $e) {
             if ($method === 'OPTIONS') {
-                return \Naf\response('', 204, ['Allow' => implode(', ', $e->getAllowedMethods())]);
+                return response('', 204, ['Allow' => implode(', ', $e->getAllowedMethods())]);
             }
 
             throw $e;
@@ -76,21 +55,22 @@ class Dispatcher
             throw $e;
         }
 
-        $response = null;
-        $action   = $route['action'];
+        $action     = $route['action'];
+        $handler    = $action;
+        $controller = null;
 
         if (is_array($action)) {
             [$class, $classAction] = $action;
             $container             = app()->container();
 
-            // A bound target class is the one the application wants to run, so
-            // prefer it over building the class named in the route. Everything
-            // that is not bound keeps building exactly as before.
-            $controller = $container->has($class)
-                ? $container->get($class)
-                : ($container instanceof AutoResolvingContainer
-                    ? $container->make($class)
-                    : new $class());
+            // Application bindings take precedence over automatic construction.
+            if ($container->has($class)) {
+                $controller = $container->get($class);
+            } elseif ($container instanceof AutoResolvingContainer) {
+                $controller = $container->make($class);
+            } else {
+                $controller = new $class();
+            }
 
             if (!is_object($controller) || !is_callable([$controller, $classAction])) {
                 throw new DispatcherException(
@@ -98,18 +78,17 @@ class Dispatcher
                 );
             }
 
-            event()->dispatch(Event::CONTROLLER_CALLING, $request, $controller, $action);
-            $response = $controller->$classAction(...$route['params'] ?? null);
-            event()->dispatch(Event::CONTROLLER_CALLED, $request, $controller, $action, $response);
-        } elseif (is_callable($action)) {
-            event()->dispatch(Event::CONTROLLER_CALLING, $request, null, $action);
-            $response = $action(...$route['params'] ?? null);
-            event()->dispatch(Event::CONTROLLER_CALLED, $request, null, $action, $response);
+            $handler = [$controller, $classAction];
         }
 
-        if ($response instanceof ResponseInterface) {
-            return $response;
+        event()->dispatch(Event::CONTROLLER_CALLING, $request, $controller, $action);
+        $response = $handler(...$route['params']);
+        event()->dispatch(Event::CONTROLLER_CALLED, $request, $controller, $action, $response);
+
+        if (!$response instanceof ResponseInterface) {
+            throw new DispatcherException('No valid response returned.');
         }
-        throw new DispatcherException('No valid response returned.');
+
+        return $response;
     }
 }

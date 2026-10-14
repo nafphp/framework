@@ -6,6 +6,8 @@ use Fixtures\Controllers\TestController;
 use Naf\Core\App;
 use Naf\Core\Container;
 use Naf\Core\Dispatcher;
+use Naf\Core\Event;
+use Naf\Core\EventManager;
 use Naf\Core\Route;
 use Naf\Decorators\AutoResolvingContainer;
 use Naf\Exceptions\DispatcherException;
@@ -165,8 +167,11 @@ class DispatcherTest extends NafTestCase
         }
     }
 
-    public function testDispatchWithExitCode()
+    public function testDispatchRejectsTheLegacyExitSentinel(): void
     {
+        $this->expectException(DispatcherException::class);
+        $this->expectExceptionMessage('No valid response returned.');
+
         $request = new ServerRequest('GET', '/exit');
 
         $route = new Route();
@@ -175,13 +180,61 @@ class DispatcherTest extends NafTestCase
         });
 
         $dispatcher = new Dispatcher($route);
+        $dispatcher->forward($request);
+    }
 
-        // Da exit(0) aufgerufen wird, können wir das nicht direkt testen
-        // Aber wir können verifizieren, dass keine Exception geworfen wird
-        $this->expectNotToPerformAssertions();
+    public function testControllerAndCallableEventsPreservePayloadsAndOrder(): void
+    {
+        $controller = new TestController();
+        $actions    = [
+            [TestController::class, 'testResponseWithParam'],
+            static fn(string $id) => new Response(200, [], "Param: $id"),
+        ];
 
-        // In einer realen Umgebung würde hier exit(0) aufgerufen
-        // Für Tests müsste man eventuell einen Mock verwenden
+        foreach ($actions as $action) {
+            $this->withContainer(function (AutoResolvingContainer $container) use ($controller, $action): void {
+                $container->set(TestController::class, $controller);
+                $seen = [];
+                foreach ([Event::CONTROLLER_CALLING, Event::CONTROLLER_CALLED] as $event) {
+                    $container->get(EventManager::class)->listen($event, static function (...$payload) use (&$seen, $event): void {
+                        $seen[] = [$event, $payload];
+                    });
+                }
+
+                $request = new ServerRequest('GET', '/test/42');
+                $route   = new Route();
+                $route->add('GET', '/test/{id}', $action);
+                $response           = (new Dispatcher($route))->forward($request);
+                $expectedController = is_array($action) ? $controller : null;
+
+                self::assertSame('Param: 42', (string) $response->getBody());
+                self::assertSame([
+                    [Event::CONTROLLER_CALLING, [$request, $expectedController, $action]],
+                    [Event::CONTROLLER_CALLED, [$request, $expectedController, $action, $response]],
+                ], $seen);
+            });
+        }
+    }
+
+    public function testAutomaticOptionsUsesTheSameMethodNormalizationAsRouting(): void
+    {
+        $route = new Route();
+        $route->add('GET', '/items', static fn() => throw new RuntimeException('GET called'));
+
+        $response = (new Dispatcher($route))->forward(new ServerRequest('options', '/items'));
+
+        self::assertSame(204, $response->getStatusCode());
+        self::assertSame('GET, HEAD, OPTIONS', $response->getHeaderLine('Allow'));
+    }
+
+    public function testWelcomeResponseUsesTheSameMethodNormalizationAsRouting(): void
+    {
+        foreach (['get', 'head'] as $method) {
+            $response = (new Dispatcher(new Route()))->forward(new ServerRequest($method, '/'));
+
+            self::assertSame(200, $response->getStatusCode());
+            self::assertStringContainsString('To begin developing, you may add your first route to', (string) $response->getBody());
+        }
     }
 
     public function testDispatchWithNullResponse()

@@ -28,12 +28,11 @@ class Route
      */
     public function add(string $method, string $path, array|callable $action, ?string $name = null): Route
     {
-        if (count($this->routes) > 0 && empty($name)) {
+        if ($this->routes !== [] && ($name === null || $name === '')) {
             throw new LogicException('You can\'t add routes without a name when there is more than one route configured.');
         }
 
-        // An unnamed route is the sole route, and it is keyed by the empty string
-        // the way PHP used to coerce null to. Saying so is what PHP 8.5 wants.
+        // Use an explicit key for unnamed routes; PHP 8.5 deprecates null keys.
         $this->routes[$name ?? ''] = [
             'method' => $method,
             'path'   => $path,
@@ -88,6 +87,8 @@ class Route
         $fallback = null;
 
         foreach ($this->routes as $name => $route) {
+            // PHP converts numeric string keys to integers; route names stay strings.
+            $name    = (string) $name;
             $pattern = '#^' . self::pattern($route['path']) . '$#';
             if (preg_match($pattern, $uri, $matches)) {
                 $allowed[] = $route['method'];
@@ -171,25 +172,25 @@ class Route
      */
     public function url(string $name, array $params = []): string
     {
-        foreach ($this->routes as $routeName => $route) {
-            if ($routeName === $name) {
-                $url = $route['path'];
-                preg_match_all('#\{([^}]+)\}#', $url, $placeholders);
-                $replacements = [];
-                foreach ($placeholders[1] as $placeholder) {
-                    if (!array_key_exists($placeholder, $params)) {
-                        throw new InvalidArgumentException("Missing parameter '{$placeholder}' for route '{$name}'.");
-                    }
-                    if (!is_string($params[$placeholder]) && !is_int($params[$placeholder])) {
-                        throw new InvalidArgumentException("Parameter '{$placeholder}' for route '{$name}' must be a string or integer.");
-                    }
-                    $replacements['{' . $placeholder . '}'] = (string) $params[$placeholder];
-                }
-
-                return strtr($url, $replacements);
-            }
+        if (!array_key_exists($name, $this->routes)) {
+            throw new RouteNotFoundException("Route '{$name}' not found.");
         }
-        throw new RouteNotFoundException("Route '{$name}' not found.");
+
+        $url = $this->routes[$name]['path'];
+        preg_match_all('#\{([^}]+)\}#', $url, $placeholders);
+        $replacements = [];
+
+        foreach ($placeholders[1] as $placeholder) {
+            if (!array_key_exists($placeholder, $params)) {
+                throw new InvalidArgumentException("Missing parameter '{$placeholder}' for route '{$name}'.");
+            }
+            if (!is_string($params[$placeholder]) && !is_int($params[$placeholder])) {
+                throw new InvalidArgumentException("Parameter '{$placeholder}' for route '{$name}' must be a string or integer.");
+            }
+            $replacements['{' . $placeholder . '}'] = (string) $params[$placeholder];
+        }
+
+        return strtr($url, $replacements);
     }
 
     /**

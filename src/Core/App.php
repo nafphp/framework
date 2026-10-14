@@ -31,8 +31,6 @@ use function Naf\log;
 
 class App
 {
-    private MutableContainerInterface $container;
-
     private bool $handlingRequest = false;
 
     /** @var Plugin[] */
@@ -40,14 +38,8 @@ class App
 
     private array $pluginBootPlan = [];
 
-    /**
-     * Initialize the application with a dependency container
-     *
-     * @param MutableContainerInterface $container The writable application container
-     */
-    public function __construct(MutableContainerInterface $container)
+    public function __construct(private MutableContainerInterface $container)
     {
-        $this->container = $container;
         AppHolder::set($this);
         $this->boot();
     }

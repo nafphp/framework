@@ -93,6 +93,30 @@ class RouteTest extends NafTestCase
         $route->url('wrong_testname');
     }
 
+    public function testNumericRouteNamesRemainStringsDuringMatchingAndUrlGeneration(): void
+    {
+        $route = new Route();
+        $route->add('GET', '/items/{id}', static fn() => null, '123');
+        $route->add('GET', '/zero', static fn() => null, '0');
+
+        self::assertSame('/items/0', $route->url('123', ['id' => 0]));
+        self::assertSame('/zero', $route->url('0'));
+        self::assertSame('0', $route->find('/zero', 'GET')['name']);
+        self::assertSame('active', $route->active('0'));
+        self::assertTrue($route->remove('0'));
+        self::assertNull($route->current());
+        foreach (['GET', 'HEAD'] as $method) {
+            self::assertSame('123', $route->find('/items/0', $method)['name']);
+            self::assertSame('123', $route->current());
+            self::assertSame('active', $route->active('123'));
+        }
+        self::assertTrue($route->remove('123'));
+        self::assertNull($route->current());
+
+        $this->expectException(RouteNotFoundException::class);
+        $route->url('123', ['id' => 0]);
+    }
+
     public function testHelperFunction()
     {
         \Naf\route()->add('GET', '/test', function () {

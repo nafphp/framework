@@ -24,17 +24,12 @@ use ReflectionParameter;
  */
 class AutoResolvingContainer implements MutableContainerInterface
 {
-    private readonly MutableContainerInterface $container;
     private array $instances       = [];
     private array $building        = [];
     private array $reflectionCache = [];
 
-    /**
-     * @param MutableContainerInterface $container The base container to decorate
-     */
-    public function __construct(MutableContainerInterface $container)
+    public function __construct(private readonly MutableContainerInterface $container)
     {
-        $this->container = $container;
     }
 
     /**
