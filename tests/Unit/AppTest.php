@@ -4,24 +4,19 @@ namespace Tests\Unit;
 
 use Naf\Core\App;
 use Naf\Core\Container;
-use Naf\Core\Dispatcher;
-use Naf\Core\Environment;
 use Naf\Support\Plugin;
-use Naf\Support\Stopwatch;
-use Psr\Http\Message\ServerRequestInterface;
 use ReflectionClass;
 use ReflectionMethod;
-use RuntimeException;
 use Tests\NafTestCase;
 
 class AppTest extends NafTestCase
 {
     public function testHasPluginHonoursVersionConstraint()
     {
-        $app = new App(new Container());
+        $app        = new App(new Container());
         $reflection = new ReflectionClass($app);
 
-        $pluginsProp = $reflection->getProperty('plugins');
+        $pluginsProp    = $reflection->getProperty('plugins');
         $pluginInstance = new Plugin('naf/database');
         $pluginInstance->setVersion('0.1.2');
 
@@ -30,17 +25,13 @@ class AppTest extends NafTestCase
         ]);
 
         $this->assertTrue($app->hasPlugin('naf/database'));
-        try {
-            $this->assertTrue($app->hasPlugin('naf/database:0.1.2'));
-            $this->assertTrue($app->hasPlugin('naf/database:>=0.1.2'));
-            $this->assertTrue($app->hasPlugin('naf/database:>0.1.1'));
-            $this->assertTrue($app->hasPlugin('naf/database:<=0.1.2'));
-            $this->assertFalse($app->hasPlugin('naf/database:>0.1.2'));
-            $this->assertFalse($app->hasPlugin('naf/database:<0.1.2'));
-            $this->assertFalse($app->hasPlugin('naf/nonexistent:>=1.0.0'));
-        } finally {
-            Stopwatch::stop('app');
-        }
+        $this->assertTrue($app->hasPlugin('naf/database:0.1.2'));
+        $this->assertTrue($app->hasPlugin('naf/database:>=0.1.2'));
+        $this->assertTrue($app->hasPlugin('naf/database:>0.1.1'));
+        $this->assertTrue($app->hasPlugin('naf/database:<=0.1.2'));
+        $this->assertFalse($app->hasPlugin('naf/database:>0.1.2'));
+        $this->assertFalse($app->hasPlugin('naf/database:<0.1.2'));
+        $this->assertFalse($app->hasPlugin('naf/nonexistent:>=1.0.0'));
     }
 
     public function testEveryPluginIsRegisteredBeforeAnyOfThemBoots()
@@ -50,13 +41,13 @@ class AppTest extends NafTestCase
         $bootstrap = tempnam(sys_get_temp_dir(), 'plugin_');
         file_put_contents(
             $bootstrap,
-            '<?php $GLOBALS["seenDuringBoot"] = count(\Naf\app()->getPlugins());'
+            '<?php $GLOBALS["seenDuringBoot"] = count(\Naf\app()->getPlugins());',
         );
 
         $first = new Plugin('test/first');
         $first->setBootstrapFile($bootstrap);
 
-        $reflection = new ReflectionClass($app);
+        $reflection  = new ReflectionClass($app);
         $pluginsProp = $reflection->getProperty('plugins');
         $pluginsProp->setValue($app, [
             'test/first'  => $first,
@@ -77,7 +68,6 @@ class AppTest extends NafTestCase
         } finally {
             unset($GLOBALS['seenDuringBoot']);
             unlink($bootstrap);
-            Stopwatch::stop('app');
         }
     }
 
@@ -112,20 +102,15 @@ class AppTest extends NafTestCase
         $this->assertSame('cli', PHP_SAPI);
         $app = new App(new Container());
 
-        try {
-            $guard = $app->guard();
+        $guard = $app->guard();
 
-            // view(), render() and s() rely on these; they used to exist for HTTP only.
-            $this->assertTrue($guard->has('safePath'));
-            $this->assertSame('&lt;b&gt;', $guard->safeOutput('<b>'));
-            $this->assertSame('users.show', $guard->safePath('users.show'));
+        // view(), render() and s() rely on these; they used to exist for HTTP only.
+        $this->assertTrue($guard->has('safePath'));
+        $this->assertSame('&lt;b&gt;', $guard->safeOutput('<b>'));
+        $this->assertSame('users.show', $guard->safePath('users.show'));
 
-            // Without a configured list the blocklists allow everything instead of failing.
-            $this->assertTrue($guard->ipBlacklist('203.0.113.7'));
-            $this->assertTrue($guard->userAgentBlacklist('curl/8'));
-        } finally {
-            Stopwatch::stop('app');
-        }
+        // Without a configured list the blocklists allow everything instead of failing.
+        $this->assertTrue($guard->ipBlacklist('203.0.113.7'));
+        $this->assertTrue($guard->userAgentBlacklist('curl/8'));
     }
-
 }

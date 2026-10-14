@@ -14,7 +14,7 @@
     </testsuites>
 
     <php>
-        <env name="APP_ENV" value="testing" force="true" />
+        <env name="APP_ENV" value="test" force="true" />
         <ini name="error_reporting" value="-1" />
         <ini name="display_errors" value="1" />
         <const name="PHPUNIT_RUNNING" value="true"/>

@@ -12,6 +12,7 @@ namespace Naf\Support;
  * probed in order and the first existing one wins, so a package is never loaded
  * from two competing locations at once.
  */
+/** @internal Framework implementation; use the documented application and plugin APIs. */
 final class CoreFileLoader
 {
     /** @var list<string> */
@@ -134,5 +135,4 @@ final class CoreFileLoader
 
         return null;
     }
-
 }

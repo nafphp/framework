@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Naf\Core;
 
 use Closure;
+use Naf\Contracts\MutableContainerInterface;
 use Naf\Exceptions\ContainerException;
 use Naf\Exceptions\ServiceNotFoundException;
-use Psr\Container\ContainerInterface;
 use Throwable;
 
-class Container implements ContainerInterface
+class Container implements MutableContainerInterface
 {
     private array $services = [];
 

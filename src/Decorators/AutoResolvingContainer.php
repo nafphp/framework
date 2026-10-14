@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Naf\Decorators;
 
+use Naf\Contracts\MutableContainerInterface;
 use Naf\Exceptions\ContainerException;
 use Naf\Exceptions\ServiceNotFoundException;
 use Psr\Container\ContainerExceptionInterface;
-use Psr\Container\ContainerInterface;
 use ReflectionClass;
 use ReflectionException;
 use ReflectionNamedType;
@@ -22,28 +22,23 @@ use ReflectionParameter;
  * - Detecting circular dependencies
  * - Caching reflection data for performance
  */
-class AutoResolvingContainer implements ContainerInterface
+class AutoResolvingContainer implements MutableContainerInterface
 {
     private array $instances       = [];
     private array $building        = [];
     private array $reflectionCache = [];
 
-    /**
-     * @param ContainerInterface $container The base container to decorate
-     */
-    public function __construct(private readonly ContainerInterface $container)
+    public function __construct(private readonly MutableContainerInterface $container)
     {
     }
 
     /**
      * Retrieves a service from the container (always singleton)
      *
-     * Tries to get from cache, then from base container, or builds via autowiring
+     * Retrieves cached or registered values; make() handles autowiring.
      *
-     * @template T
-     * @param class-string<T>|string $id
-     *
-     * @return T|mixed
+     * @param string $id
+     * @return mixed
      * @throws ServiceNotFoundException
      * @throws ContainerException|ContainerExceptionInterface
      */

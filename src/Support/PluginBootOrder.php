@@ -9,6 +9,7 @@ use JsonException;
 use RuntimeException;
 
 /** Computes boot order from package metadata without executing plugin code. */
+/** @internal Framework implementation; use the documented application and plugin APIs. */
 final class PluginBootOrder
 {
     /** @param array<string, string> $paths */

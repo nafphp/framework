@@ -2,51 +2,65 @@
 
 namespace Tests\Unit;
 
+use LogicException;
 use Naf\Core\Route;
+use Naf\Exceptions\MethodNotAllowedException;
 use Naf\Exceptions\RouteNotFoundException;
 use Tests\NafTestCase;
-use function Naf\app;
 
 class RouteTest extends NafTestCase
 {
-
     public function testShouldAddRoute()
     {
         $route = new Route();
-        $route->add('GET', '/test', function() { return 'test'; });
+        $route->add('GET', '/test', function () {
+            return 'test';
+        });
         $result = $route->find('/test', 'GET');
         $this->assertTrue(is_callable($result['action']));
     }
-    
+
     public function testShouldReturnNotFoundException()
     {
         $this->expectException(RouteNotFoundException::class);
         $route = new Route();
-        $route->add('GET', '/test', function() { return 'test'; });
+        $route->add('GET', '/test', function () {
+            return 'test';
+        });
         $route->find('/other', 'GET');
     }
 
     public function testShouldIgnoreWrongMethod()
     {
-        $this->expectException(RouteNotFoundException::class);
+        $this->expectException(MethodNotAllowedException::class);
         $route = new Route();
-        $route->add('GET', '/test', function() { return 'test'; });
+        $route->add('GET', '/test', function () {
+            return 'test';
+        });
         $route->find('/test', 'POST');
     }
 
     public function testShouldThrowExceptionForMissingName()
     {
-        $this->expectException(\LogicException::class);
+        $this->expectException(LogicException::class);
         $route = new Route();
-        $route->add('GET', '/test', function() { return 'test'; });
-        $route->add('GET', '/test2', function() { return 'test'; });
+        $route->add('GET', '/test', function () {
+            return 'test';
+        });
+        $route->add('GET', '/test2', function () {
+            return 'test';
+        });
     }
 
     public function testShouldAllowMultipleRoutes()
     {
         $route = new Route();
-        $route->add('GET', '/test', function() { return 'test'; }, 'name');
-        $route->add('GET', '/test2', function() { return 'test'; }, 'name2');
+        $route->add('GET', '/test', function () {
+            return 'test';
+        }, 'name');
+        $route->add('GET', '/test2', function () {
+            return 'test';
+        }, 'name2');
         $this->assertIsCallable($route->find('/test', 'GET')['action']);
         $this->assertIsCallable($route->find('/test2', 'GET')['action']);
     }
@@ -54,14 +68,18 @@ class RouteTest extends NafTestCase
     public function testShouldReturnRouteByName()
     {
         $route = new Route();
-        $route->add('GET', '/test', function() { return 'test'; }, 'testname');
+        $route->add('GET', '/test', function () {
+            return 'test';
+        }, 'testname');
         $this->assertSame('/test', $route->url('testname'));
     }
 
     public function testShouldReturnRouteByNameWithParams()
     {
         $route = new Route();
-        $route->add('GET', '/test/{id}', function($id) { return $id; }, 'testname');
+        $route->add('GET', '/test/{id}', function ($id) {
+            return $id;
+        }, 'testname');
         $this->assertSame('/test/1', $route->url('testname', ['id' => 1]));
     }
 
@@ -69,22 +87,51 @@ class RouteTest extends NafTestCase
     {
         $this->expectException(RouteNotFoundException::class);
         $route = new Route();
-        $route->add('GET', '/test', function() { return 'test'; }, 'testname');
+        $route->add('GET', '/test', function () {
+            return 'test';
+        }, 'testname');
         $route->url('wrong_testname');
+    }
+
+    public function testNumericRouteNamesRemainStringsDuringMatchingAndUrlGeneration(): void
+    {
+        $route = new Route();
+        $route->add('GET', '/items/{id}', static fn() => null, '123');
+        $route->add('GET', '/zero', static fn() => null, '0');
+
+        self::assertSame('/items/0', $route->url('123', ['id' => 0]));
+        self::assertSame('/zero', $route->url('0'));
+        self::assertSame('0', $route->find('/zero', 'GET')['name']);
+        self::assertSame('active', $route->active('0'));
+        self::assertTrue($route->remove('0'));
+        self::assertNull($route->current());
+        foreach (['GET', 'HEAD'] as $method) {
+            self::assertSame('123', $route->find('/items/0', $method)['name']);
+            self::assertSame('123', $route->current());
+            self::assertSame('active', $route->active('123'));
+        }
+        self::assertTrue($route->remove('123'));
+        self::assertNull($route->current());
+
+        $this->expectException(RouteNotFoundException::class);
+        $route->url('123', ['id' => 0]);
     }
 
     public function testHelperFunction()
     {
-        \Naf\route()->add('GET', '/test', function() { return 'test'; }, 'test');
+        \Naf\route()->add('GET', '/test', function () {
+            return 'test';
+        }, 'test');
 
         $this->assertSame('/test', \Naf\route('test'));
     }
 
-
     public function testShouldTreatLiteralPathAsLiteral()
     {
         $route = new Route();
-        $route->add('GET', '/.well-known/jwks.json', function() { return 'keys'; }, 'jwks');
+        $route->add('GET', '/.well-known/jwks.json', function () {
+            return 'keys';
+        }, 'jwks');
 
         $this->assertIsArray($route->find('/.well-known/jwks.json', 'GET'));
 
@@ -103,7 +150,9 @@ class RouteTest extends NafTestCase
     public function testShouldStillMatchPlaceholdersNextToMetacharacters()
     {
         $route = new Route();
-        $route->add('GET', '/files/{name}.json', function() { return 'file'; }, 'file');
+        $route->add('GET', '/files/{name}.json', function () {
+            return 'file';
+        }, 'file');
 
         $result = $route->find('/files/report.json', 'GET');
 
@@ -116,7 +165,9 @@ class RouteTest extends NafTestCase
     public function testShouldNotLetAPathSmuggleInAnExpression()
     {
         $route = new Route();
-        $route->add('GET', '/search/(.*)', function() { return 'search'; }, 'search');
+        $route->add('GET', '/search/(.*)', function () {
+            return 'search';
+        }, 'search');
 
         $this->assertIsArray($route->find('/search/(.*)', 'GET'));
 
@@ -127,7 +178,9 @@ class RouteTest extends NafTestCase
     public function testAnUnnamedRouteIsKeyedByAnEmptyString()
     {
         $route = new Route();
-        $route->add('GET', '/test', function() { return 'test'; });
+        $route->add('GET', '/test', function () {
+            return 'test';
+        });
 
         $this->assertSame([''], array_keys($route->all()));
 
@@ -138,8 +191,12 @@ class RouteTest extends NafTestCase
     public function testRemovingANamedRouteTakesItOutOfMatching()
     {
         $route = new Route();
-        $route->add('GET', '/kept', function() { return 'kept'; }, 'kept');
-        $route->add('GET', '/dropped', function() { return 'dropped'; }, 'dropped');
+        $route->add('GET', '/kept', function () {
+            return 'kept';
+        }, 'kept');
+        $route->add('GET', '/dropped', function () {
+            return 'dropped';
+        }, 'dropped');
 
         $this->assertTrue($route->remove('dropped'));
         $this->assertSame(['kept'], array_keys($route->all()));
@@ -152,7 +209,9 @@ class RouteTest extends NafTestCase
     public function testRemovingAnUnknownRouteIsFalseAndChangesNothing()
     {
         $route = new Route();
-        $route->add('GET', '/kept', function() { return 'kept'; }, 'kept');
+        $route->add('GET', '/kept', function () {
+            return 'kept';
+        }, 'kept');
 
         $this->assertFalse($route->remove('never-registered'));
         $this->assertSame(['kept'], array_keys($route->all()));
@@ -161,7 +220,9 @@ class RouteTest extends NafTestCase
     public function testRemovingTheCurrentRouteForgetsIt()
     {
         $route = new Route();
-        $route->add('GET', '/kept', function() { return 'kept'; }, 'kept');
+        $route->add('GET', '/kept', function () {
+            return 'kept';
+        }, 'kept');
         $route->find('/kept', 'GET');
 
         $this->assertSame('kept', $route->current());

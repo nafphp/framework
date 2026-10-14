@@ -6,14 +6,16 @@ namespace Naf\Core;
 
 use Composer\InstalledVersions;
 use InvalidArgumentException;
+use LogicException;
 use Naf\Contracts\ConfigurationSourceInterface;
+use Naf\Contracts\MutableContainerInterface;
+use Naf\Exceptions\MethodNotAllowedException;
 use Naf\Support\AppHolder;
 use Naf\Support\CoreFileLoader;
 use Naf\Support\Guard;
 use Naf\Support\Plugin;
 use Naf\Support\PluginBootOrder;
 use Naf\Support\RequestParameter;
-use Naf\Support\Stopwatch;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7Server\ServerRequestCreator;
 use OutOfBoundsException;
@@ -29,22 +31,15 @@ use function Naf\log;
 
 class App
 {
-    private ContainerInterface $container;
+    private bool $handlingRequest = false;
 
     /** @var Plugin[] */
     private array $plugins = [];
 
     private array $pluginBootPlan = [];
 
-    /**
-     * Initialize the application with a dependency container
-     *
-     * @param ContainerInterface $container The dependency injection container
-     */
-    public function __construct(ContainerInterface $container)
+    public function __construct(private MutableContainerInterface $container)
     {
-        Stopwatch::start('app');
-        $this->container = $container;
         AppHolder::set($this);
         $this->boot();
     }
@@ -60,17 +55,48 @@ class App
 
         try {
             $request = $this->createServerRequest();
-            $this->registerRequest($request);
-
-            $this->container()->get(EventManager::class)->dispatch(Event::REQUEST_START, $request);
-            $response = $this->container->get(Dispatcher::class)->forward($request);
         } catch (Throwable $e) {
             $response = $this->handleThrowable($e);
+            $this->finalizeResponse($response, 0.0);
+            ResponseEmitter::send($response);
         }
 
-        $this->finalizeResponse($response);
+        ResponseEmitter::send($this->handle($request));
+    }
 
-        ResponseEmitter::send($response); // This will abort the request as exit(0) is called
+    /**
+     * Handle a supplied request without emitting headers, writing output or exiting.
+     *
+     * Request bindings are replaced for each call. Application services remain shared;
+     * callers must not retain request-specific data in singleton services.
+     */
+    public function handle(ServerRequestInterface $request): ResponseInterface
+    {
+        if ($this->handlingRequest) {
+            throw new LogicException('An application cannot handle overlapping requests.');
+        }
+
+        $this->handlingRequest = true;
+        $started               = hrtime(true);
+        AppHolder::set($this);
+
+        try {
+            try {
+                $this->container->get(Route::class)->clearCurrent();
+                $this->registerRequest($request);
+                $this->container->get(EventManager::class)->dispatch(Event::REQUEST_START, $request);
+                $response = $this->container->get(Dispatcher::class)->forward($request);
+            } catch (Throwable $e) {
+                $response = $this->handleThrowable($e);
+            }
+
+            $response = ResponseEmitter::prepare($response, $request->getMethod());
+            $this->finalizeResponse($response, (hrtime(true) - $started) / 1_000_000_000);
+
+            return $response;
+        } finally {
+            $this->handlingRequest = false;
+        }
     }
 
     private function registerRequest(ServerRequestInterface $request): void
@@ -86,10 +112,6 @@ class App
     {
         try {
             $exceptionResponse = event()->dispatchForResponse(Event::EXCEPTION, $e);
-
-            if ($exceptionResponse !== null) {
-                return $exceptionResponse;
-            }
         } catch (Throwable $listenerException) {
             log()->error(
                 sprintf(
@@ -100,11 +122,18 @@ class App
             );
         }
 
-        log()->error($e->getMessage());
+        if (!isset($exceptionResponse)) {
+            log()->error($e->getMessage());
 
-        $statusCode = ErrorHandler::resolveStatusCode($e);
+            $statusCode        = ErrorHandler::resolveStatusCode($e);
+            $exceptionResponse = ErrorHandler::renderResponse($e, $statusCode);
+        }
 
-        return ErrorHandler::renderResponse($e, $statusCode);
+        if ($e instanceof MethodNotAllowedException && $exceptionResponse->getStatusCode() === 405) {
+            $exceptionResponse = $exceptionResponse->withHeader('Allow', implode(', ', $e->getAllowedMethods()));
+        }
+
+        return $exceptionResponse;
     }
 
     /**
@@ -115,10 +144,10 @@ class App
      *
      * @param ResponseInterface $response The response about to be sent
      */
-    private function finalizeResponse(ResponseInterface $response): void
+    private function finalizeResponse(ResponseInterface $response, float $elapsed): void
     {
         try {
-            log()->info('Request completed in ' . Stopwatch::stop('app') . 's');
+            log()->info('Request completed in ' . number_format($elapsed, 5, '.', '') . 's');
             event()->dispatch(Event::RESPONSE_SEND, $response);
         } catch (Throwable $e) {
             log()->error('Response finalisation failed: ' . $e->getMessage());
@@ -128,7 +157,7 @@ class App
     /**
      * Get the dependency injection container
      *
-     * @return Container The container instance
+     * @return MutableContainerInterface The writable container instance
      */
     public function container(): ContainerInterface
     {
@@ -231,7 +260,7 @@ class App
             return null;
         }
 
-        return \BASE_PATH;
+        return constant('BASE_PATH');
     }
 
     /**
@@ -334,8 +363,8 @@ class App
             $merged = array_replace_recursive($coreConfig, $pluginConfig, $appConfig);
 
             $configuration = new Config($merged);
-            $sourceFiles = $this->collectPluginResources('configSourceFiles');
-            $hostSources = CoreFileLoader::file($this->getBasePath(), CoreFileLoader::CONFIG_SOURCE_FILES);
+            $sourceFiles   = $this->collectPluginResources('configSourceFiles');
+            $hostSources   = CoreFileLoader::file($this->getBasePath(), CoreFileLoader::CONFIG_SOURCE_FILES);
             if ($hostSources !== null && !in_array($hostSources, $sourceFiles, true)) {
                 $sourceFiles[] = $hostSources;
             }
@@ -352,6 +381,7 @@ class App
                     $configuration->overlay($source->name(), $source->load($this->getBasePath()));
                 }
             }
+
             return $configuration;
         });
 

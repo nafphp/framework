@@ -5,15 +5,19 @@ namespace Tests\Unit;
 use Fixtures\Controllers\TestController;
 use Naf\Core\App;
 use Naf\Core\Container;
+use Naf\Core\Dispatcher;
+use Naf\Core\Event;
+use Naf\Core\EventManager;
+use Naf\Core\Route;
 use Naf\Decorators\AutoResolvingContainer;
+use Naf\Exceptions\DispatcherException;
+use Naf\Exceptions\RouteNotFoundException;
 use Naf\Support\AppHolder;
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest;
-use Naf\Core\Dispatcher;
-use Naf\Core\Route;
-use Naf\Exceptions\DispatcherException;
-use Naf\Exceptions\RouteNotFoundException;
 use Psr\Http\Message\ResponseInterface;
+use RuntimeException;
+use stdClass;
 use Tests\NafTestCase;
 
 class DispatcherTest extends NafTestCase
@@ -28,7 +32,7 @@ class DispatcherTest extends NafTestCase
         });
 
         $dispatcher = new Dispatcher($route);
-        $response = $dispatcher->forward($request);
+        $response   = $dispatcher->forward($request);
 
         $this->assertInstanceOf(ResponseInterface::class, $response);
     }
@@ -69,7 +73,7 @@ class DispatcherTest extends NafTestCase
         $route->add('GET', '/test', [TestController::class, 'testResponse']);
 
         $dispatcher = new Dispatcher($route);
-        $response = $dispatcher->forward($request);
+        $response   = $dispatcher->forward($request);
         $this->assertInstanceOf(ResponseInterface::class, $response);
         $this->assertSame(200, $response->getStatusCode());
         $this->assertSame('test', $response->getBody()->getContents());
@@ -78,10 +82,10 @@ class DispatcherTest extends NafTestCase
     public function testDispatchPlaceholderWhenNoRoutesAreConfigured()
     {
         $request = new ServerRequest('GET', '/');
-        $route = new Route();
+        $route   = new Route();
 
         $dispatcher = new Dispatcher($route);
-        $response = $dispatcher->forward($request);
+        $response   = $dispatcher->forward($request);
         $this->assertInstanceOf(ResponseInterface::class, $response);
         $this->assertSame(200, $response->getStatusCode());
         $this->assertStringContainsString('To begin developing, you may add your first route to', $response->getBody()->getContents());
@@ -91,7 +95,7 @@ class DispatcherTest extends NafTestCase
     {
         $this->expectException(RouteNotFoundException::class);
         $request = new ServerRequest('GET', '/test');
-        $route = new Route();
+        $route   = new Route();
 
         $dispatcher = new Dispatcher($route);
         $dispatcher->forward($request);
@@ -109,7 +113,7 @@ class DispatcherTest extends NafTestCase
         });
 
         $dispatcher = new Dispatcher($route);
-        $response = $dispatcher->forward($request);
+        $response   = $dispatcher->forward($request);
 
         $this->assertInstanceOf(ResponseInterface::class, $response);
         $this->assertSame('User ID: 123', $response->getBody()->getContents());
@@ -125,7 +129,7 @@ class DispatcherTest extends NafTestCase
         });
 
         $dispatcher = new Dispatcher($route);
-        $response = $dispatcher->forward($request);
+        $response   = $dispatcher->forward($request);
 
         $this->assertSame('Post: 42, Comment: 7', $response->getBody()->getContents());
     }
@@ -138,7 +142,7 @@ class DispatcherTest extends NafTestCase
         $route->add('GET', '/test/{id}', [TestController::class, 'testResponseWithParam']);
 
         $dispatcher = new Dispatcher($route);
-        $response = $dispatcher->forward($request);
+        $response   = $dispatcher->forward($request);
 
         $this->assertInstanceOf(ResponseInterface::class, $response);
         $this->assertStringContainsString('999', $response->getBody()->getContents());
@@ -157,14 +161,17 @@ class DispatcherTest extends NafTestCase
             });
 
             $dispatcher = new Dispatcher($route);
-            $response = $dispatcher->forward($request);
+            $response   = $dispatcher->forward($request);
 
             $this->assertSame("Method: $method", $response->getBody()->getContents());
         }
     }
 
-    public function testDispatchWithExitCode()
+    public function testDispatchRejectsTheLegacyExitSentinel(): void
     {
+        $this->expectException(DispatcherException::class);
+        $this->expectExceptionMessage('No valid response returned.');
+
         $request = new ServerRequest('GET', '/exit');
 
         $route = new Route();
@@ -173,13 +180,61 @@ class DispatcherTest extends NafTestCase
         });
 
         $dispatcher = new Dispatcher($route);
+        $dispatcher->forward($request);
+    }
 
-        // Da exit(0) aufgerufen wird, können wir das nicht direkt testen
-        // Aber wir können verifizieren, dass keine Exception geworfen wird
-        $this->expectNotToPerformAssertions();
+    public function testControllerAndCallableEventsPreservePayloadsAndOrder(): void
+    {
+        $controller = new TestController();
+        $actions    = [
+            [TestController::class, 'testResponseWithParam'],
+            static fn(string $id) => new Response(200, [], "Param: $id"),
+        ];
 
-        // In einer realen Umgebung würde hier exit(0) aufgerufen
-        // Für Tests müsste man eventuell einen Mock verwenden
+        foreach ($actions as $action) {
+            $this->withContainer(function (AutoResolvingContainer $container) use ($controller, $action): void {
+                $container->set(TestController::class, $controller);
+                $seen = [];
+                foreach ([Event::CONTROLLER_CALLING, Event::CONTROLLER_CALLED] as $event) {
+                    $container->get(EventManager::class)->listen($event, static function (...$payload) use (&$seen, $event): void {
+                        $seen[] = [$event, $payload];
+                    });
+                }
+
+                $request = new ServerRequest('GET', '/test/42');
+                $route   = new Route();
+                $route->add('GET', '/test/{id}', $action);
+                $response           = (new Dispatcher($route))->forward($request);
+                $expectedController = is_array($action) ? $controller : null;
+
+                self::assertSame('Param: 42', (string) $response->getBody());
+                self::assertSame([
+                    [Event::CONTROLLER_CALLING, [$request, $expectedController, $action]],
+                    [Event::CONTROLLER_CALLED, [$request, $expectedController, $action, $response]],
+                ], $seen);
+            });
+        }
+    }
+
+    public function testAutomaticOptionsUsesTheSameMethodNormalizationAsRouting(): void
+    {
+        $route = new Route();
+        $route->add('GET', '/items', static fn() => throw new RuntimeException('GET called'));
+
+        $response = (new Dispatcher($route))->forward(new ServerRequest('options', '/items'));
+
+        self::assertSame(204, $response->getStatusCode());
+        self::assertSame('GET, HEAD, OPTIONS', $response->getHeaderLine('Allow'));
+    }
+
+    public function testWelcomeResponseUsesTheSameMethodNormalizationAsRouting(): void
+    {
+        foreach (['get', 'head'] as $method) {
+            $response = (new Dispatcher(new Route()))->forward(new ServerRequest($method, '/'));
+
+            self::assertSame(200, $response->getStatusCode());
+            self::assertStringContainsString('To begin developing, you may add your first route to', (string) $response->getBody());
+        }
     }
 
     public function testDispatchWithNullResponse()
@@ -221,7 +276,7 @@ class DispatcherTest extends NafTestCase
 
         $route = new Route();
         $route->add('GET', '/test', function () {
-            return new \stdClass();
+            return new stdClass();
         });
 
         $dispatcher = new Dispatcher($route);
@@ -235,11 +290,12 @@ class DispatcherTest extends NafTestCase
         $route = new Route();
         $route->add('GET', '/test', function (...$params) {
             $this->assertEmpty($params);
+
             return new Response(200, [], 'No params');
         });
 
         $dispatcher = new Dispatcher($route);
-        $response = $dispatcher->forward($request);
+        $response   = $dispatcher->forward($request);
 
         $this->assertSame('No params', $response->getBody()->getContents());
     }
@@ -254,7 +310,7 @@ class DispatcherTest extends NafTestCase
         });
 
         $dispatcher = new Dispatcher($route);
-        $response = $dispatcher->forward($request);
+        $response   = $dispatcher->forward($request);
 
         $this->assertSame(201, $response->getStatusCode());
     }
@@ -269,7 +325,7 @@ class DispatcherTest extends NafTestCase
         });
 
         $dispatcher = new Dispatcher($route);
-        $response = $dispatcher->forward($request);
+        $response   = $dispatcher->forward($request);
 
         $this->assertTrue($response->hasHeader('X-Custom-Header'));
         $this->assertSame('CustomValue', $response->getHeaderLine('X-Custom-Header'));
@@ -285,7 +341,7 @@ class DispatcherTest extends NafTestCase
         });
 
         $dispatcher = new Dispatcher($route);
-        $response = $dispatcher->forward($request);
+        $response   = $dispatcher->forward($request);
 
         // Body nur EINMAL lesen und in Variable speichern
         $body = $response->getBody()->getContents();
@@ -299,7 +355,7 @@ class DispatcherTest extends NafTestCase
         $this->expectException(RouteNotFoundException::class);
 
         $request = new ServerRequest('POST', '/');
-        $route = new Route();
+        $route   = new Route();
 
         $dispatcher = new Dispatcher($route);
         $dispatcher->forward($request);
@@ -315,7 +371,7 @@ class DispatcherTest extends NafTestCase
         });
 
         $dispatcher = new Dispatcher($route);
-        $response = $dispatcher->forward($request);
+        $response   = $dispatcher->forward($request);
 
         $this->assertSame('Custom Root', $response->getBody()->getContents());
     }
@@ -330,7 +386,7 @@ class DispatcherTest extends NafTestCase
         });
 
         $dispatcher = new Dispatcher($route);
-        $response = $dispatcher->forward($request);
+        $response   = $dispatcher->forward($request);
 
         $this->assertInstanceOf(ResponseInterface::class, $response);
     }
@@ -345,7 +401,7 @@ class DispatcherTest extends NafTestCase
         });
 
         $dispatcher = new Dispatcher($route);
-        $response = $dispatcher->forward($request);
+        $response   = $dispatcher->forward($request);
 
         $this->assertSame('Special chars', $response->getBody()->getContents());
     }
@@ -356,10 +412,10 @@ class DispatcherTest extends NafTestCase
         $route->add('GET', '/test', [TestController::class, 'testResponse']);
         $dispatcher = new Dispatcher($route);
 
-        $request1 = new ServerRequest('GET', '/test');
+        $request1  = new ServerRequest('GET', '/test');
         $response1 = $dispatcher->forward($request1);
 
-        $request2 = new ServerRequest('GET', '/test');
+        $request2  = new ServerRequest('GET', '/test');
         $response2 = $dispatcher->forward($request2);
 
         $this->assertInstanceOf(ResponseInterface::class, $response1);
@@ -377,7 +433,7 @@ class DispatcherTest extends NafTestCase
         });
 
         $dispatcher = new Dispatcher($route);
-        $response = $dispatcher->forward($request);
+        $response   = $dispatcher->forward($request);
 
         $this->assertStringContainsString('ID: 0', $response->getBody()->getContents());
     }
@@ -419,7 +475,7 @@ class DispatcherTest extends NafTestCase
     {
         $this->withContainer(function (AutoResolvingContainer $container) {
             $container->set(TestController::class, function () {
-                throw new \RuntimeException('factory exploded');
+                throw new RuntimeException('factory exploded');
             });
 
             $route = new Route();
@@ -433,7 +489,7 @@ class DispatcherTest extends NafTestCase
     public function testABoundControllerWithoutTheActionIsReported()
     {
         $this->withContainer(function (AutoResolvingContainer $container) {
-            $container->set(TestController::class, new \stdClass());
+            $container->set(TestController::class, new stdClass());
 
             $route = new Route();
             $route->add('GET', '/test', [TestController::class, 'testResponse']);
@@ -448,7 +504,7 @@ class DispatcherTest extends NafTestCase
      */
     private function withContainer(callable $check): void
     {
-        $previous = AppHolder::get();
+        $previous  = AppHolder::get();
         $container = new AutoResolvingContainer(new Container());
 
         try {

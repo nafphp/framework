@@ -6,10 +6,7 @@ namespace Naf\Support;
 
 class Collection
 {
-
-    /** @template T
-     *  @var array<string, T>
-     */
+    /** @var array<array-key, mixed> */
     protected array $items = [];
 
     public function __construct(array $items = [])
@@ -37,6 +34,7 @@ class Collection
     public function add(string $key, mixed $value = null): static
     {
         $this->items[$key] = $value;
+
         return $this;
     }
 

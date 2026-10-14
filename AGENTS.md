@@ -30,6 +30,7 @@ describe behavior more broadly than the implementation; for example, `get()` doe
 | Errors and built-in fallback views | [ErrorHandler](src/Core/ErrorHandler.php), [Exceptions](src/Exceptions/), [src/view_helpers.php](src/view_helpers.php) |
 
 Runtime support is PHP 8.3+ with the extensions and PSR dependencies declared in the manifest.
+The core does not require PDO; database plugins declare their own extension requirements.
 Use PSR-7 responses, PSR-11 container contracts and PSR-3 logging. PSR-18 HTTP client behavior
 is supplied by `naf/client`, not by this core. Import namespaced functions explicitly;
 `simple_render()` is internal and does not replace the optional `naf/view` API.
@@ -67,10 +68,25 @@ adding abstractions. Do not add application-specific dependencies to the core.
   default; `singleton: true` stores it. Bind interfaces and scalar configuration explicitly.
   `set()` clears that binding's cached value, not references held by existing consumers.
   Factories receive the wrapped base container; capture the decorator if they need `make()`.
+  Both built-in containers implement `MutableContainerInterface`, which extends PSR-11 with
+  `set()` and `reset()`. App and the autowiring decorator require this interface directly
+  in their constructor types. PHP rejects unsupported containers with `TypeError` before
+  boot; custom writable containers must implement the interface.
 - The default dispatcher uses constructor injection for controllers, but route arguments
   are named parameters, not action-method injection. Keep `{id}` aligned with `$id`.
   Give every route a unique name; adding an unnamed route after another route is rejected.
   With another container implementation, inspect the dispatcher's non-autowiring fallback.
+- `App::handle($request)` registers a supplied PSR-7 server request, runs request/controller
+  hooks and error handling, normalizes responses without content, and finalizes the response.
+  It returns without output or exit. Sequential calls replace request/parameter bindings
+  and clear the matched route; application/plugin singletons remain shared.
+  Emission hooks (`response.header`, `response.body`, `response.end`) belong to the emitter.
+  Returning the old `-1` sentinel from a handler now fails the response contract.
+- HEAD prefers an explicit HEAD route and otherwise falls back to GET. Known paths with
+  an unsupported method produce 405 plus Allow, including implicit HEAD and OPTIONS.
+  Explicit OPTIONS routes win; otherwise Dispatcher returns 204 plus Allow without calling
+  a controller. Unknown paths stay 404. URL generation requires every placeholder as a
+  string or integer; callers still use rawurlencode(), and substitution happens once.
 
 ## Exercise it through a real host
 
@@ -136,9 +152,15 @@ Inspect payloads and call sites before using an event as an extension point.
 composer install
 composer validate --strict
 composer test
+composer analyse
+composer test:http
+composer test:plugins
 ```
 
-These are the actual commands; no `analyse` script is declared. The suite uses
+PHPStan checks source at level 5 for PHP 8.3 without a baseline. HTTP tests use a disposable
+server; plugin tests install published Form, Session, View and i18n in a temporary host.
+CI checks PHP 8.3/8.4/8.5 with lowest/latest dependencies, the locked set on 8.3, and a
+production core install with PDO disabled. The suite uses
 [phpunit.xml](phpunit.xml), [tests/bootstrap.php](tests/bootstrap.php),
 [NafTestCase](tests/NafTestCase.php), [unit tests](tests/Unit/) and
 [host/plugin fixtures](tests/Fixtures/). Check the locked PHPUnit requirements and
@@ -149,7 +171,7 @@ Add a regression test at the owning boundary: helper results in `FunctionsTest`,
 resolution in `ContainerTest`/`AutoResolvingContainerTest`, route/dispatch behavior in their
 suites, and plugin order/resource precedence in `AppTest`/`PluginTest`/`CoreFileLoaderTest`.
 Restore global app, environment, handler and timing state touched by tests. The fixture suite
-currently sets `APP_ENV=testing`; that is not the public `Environment::TEST` value (`test`).
+uses `APP_ENV=test`.
 
 For boot/emission/error fixes, include a real HTTP or subprocess check: `App::run()` returns
 immediately in CLI and `ResponseEmitter::send()`/`emit()` exit the process. A PHPUnit response

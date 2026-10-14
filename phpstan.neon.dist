@@ -1,0 +1,12 @@
+parameters:
+    level: 5
+    phpVersion: 80300
+    treatPhpDocTypesAsCertain: false
+    paths:
+        - src
+    excludePaths:
+        analyse:
+            - src/Resources
+    tmpDir: .phpstan-cache
+    parallel:
+        maximumNumberOfProcesses: 1
