@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace Naf\Core;
 
+use Closure;
 use Naf\Decorators\AutoResolvingContainer;
 use Psr\Http\Message\ResponseInterface;
+use ReflectionFunction;
+use Throwable;
 
 use function Naf\app;
+use function Naf\log;
 
 class EventManager
 {
@@ -88,6 +92,55 @@ class EventManager
         foreach ($this->sortedListeners($event) as $listener) {
             if ($this->isInvokable($listener['callback'])) {
                 $responses[] = $this->invoke($listener['callback'], $payload);
+            }
+        }
+
+        return $responses;
+    }
+
+    /**
+     * Dispatch through this manager with every listener isolated
+     *
+     *     event()->isolated()->dispatch('cms.page.published', $page);
+     *
+     * Each listener then runs on its own: an exception it throws is logged with
+     * the event and the listener, and the remaining listeners still run. See
+     * IsolatedDispatcher for when to use it -- never for guards.
+     *
+     * The returned dispatcher uses this manager's listeners as they are when
+     * it dispatches, including listeners registered after isolated() was called.
+     */
+    public function isolated(): IsolatedDispatcher
+    {
+        return new IsolatedDispatcher($this->dispatchEachIsolated(...));
+    }
+
+    /**
+     * The isolated dispatch loop behind isolated()->dispatch()
+     *
+     * @param string|object $event   Event name, or an event object standing for both
+     * @param array         $payload Arguments for the listeners; ignored for an object
+     *
+     * @return array Array of responses from the listeners that did not throw
+     */
+    private function dispatchEachIsolated(string|object $event, array $payload): array
+    {
+        if (is_object($event)) {
+            $payload = [$event];
+            $event   = $event::class;
+        }
+
+        $responses = [];
+
+        foreach ($this->sortedListeners($event) as $listener) {
+            if (!$this->isInvokable($listener['callback'])) {
+                continue;
+            }
+
+            try {
+                $responses[] = $this->invoke($listener['callback'], $payload);
+            } catch (Throwable $exception) {
+                $this->reportListenerFailure($event, $listener['callback'], $exception);
             }
         }
 
@@ -179,6 +232,61 @@ class EventManager
         }
 
         return $callback(...$payload);
+    }
+
+    /**
+     * Log a listener that failed during an isolated dispatch
+     *
+     * A logger that fails itself must not turn the isolated dispatch into a
+     * failing one, so PHP's error log is the last resort.
+     */
+    private function reportListenerFailure(string $event, array|callable $callback, Throwable $exception): void
+    {
+        $listener = 'unknown listener';
+
+        try {
+            $listener = $this->describeListener($callback);
+            log()->error('Event listener failed', [
+                'event'     => $event,
+                'listener'  => $listener,
+                'exception' => $exception,
+            ]);
+        } catch (Throwable) {
+            error_log(sprintf(
+                'NAF: event listener %s for "%s" failed: %s: %s',
+                $listener,
+                $event,
+                $exception::class,
+                $exception->getMessage(),
+            ));
+        }
+    }
+
+    /**
+     * A readable name for a listener, for log entries
+     */
+    private function describeListener(array|callable $callback): string
+    {
+        if (is_string($callback)) {
+            return $callback;
+        }
+
+        if (is_array($callback)) {
+            $target = $callback[0] ?? null;
+            $method = $callback[1] ?? null;
+            $class  = is_object($target) ? $target::class : (is_string($target) ? $target : 'unknown');
+
+            return $class . '::' . (is_string($method) ? $method : 'unknown');
+        }
+
+        if ($callback instanceof Closure) {
+            $function = new ReflectionFunction($callback);
+            $file     = $function->getFileName();
+
+            return $file === false ? 'Closure' : sprintf('Closure@%s:%d', $file, $function->getStartLine());
+        }
+
+        return is_object($callback) ? $callback::class . '::__invoke' : 'callable';
     }
 
     /**

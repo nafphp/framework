@@ -3,11 +3,19 @@
 namespace Tests\Unit;
 
 use Fixtures\Enums\CustomEvent;
+use Fixtures\Events\FailingEventListener;
 use Fixtures\Events\OrderShipped;
 use Fixtures\Events\TestEventListener;
 use Naf\Core\EventManager;
+use Naf\Exceptions\AbortException;
 use Nyholm\Psr7\Response;
+use Psr\Log\LoggerInterface;
+use RuntimeException;
 use Tests\NafTestCase;
+use TypeError;
+
+use function Naf\abort;
+use function Naf\app;
 
 class EventTest extends NafTestCase
 {
@@ -207,4 +215,181 @@ class EventTest extends NafTestCase
         $this->assertSame($original, (new EventManager())->dispatchResponse(CustomEvent::TEST_EVENT, $original));
     }
 
+
+    /**
+     * The guarantee isolation is for: a broken listener is reported, and the
+     * listeners after it still run and still answer, in their usual order.
+     */
+    public function testIsolatedDispatchKeepsRunningAfterAFailingListener()
+    {
+        $event     = new EventManager();
+        $exception = new RuntimeException('first listener failed');
+        $line      = __LINE__ + 1;
+        $event->listen(CustomEvent::TEST_EVENT, fn () => throw $exception, priority: 10);
+        $event->listen(CustomEvent::TEST_EVENT, fn () => 'second');
+        $event->listen(CustomEvent::TEST_EVENT, fn () => 'third', priority: -10);
+
+        $logged = $this->captureLoggedErrors(fn () => $this->assertSame(
+            ['second', 'third'],
+            $event->isolated()->dispatch(CustomEvent::TEST_EVENT),
+        ));
+
+        $this->assertCount(1, $logged);
+        $this->assertSame('Event listener failed', $logged[0]['message']);
+        $this->assertSame(CustomEvent::TEST_EVENT, $logged[0]['context']['event']);
+        $this->assertSame('Closure@' . __FILE__ . ':' . $line, $logged[0]['context']['listener']);
+        $this->assertSame($exception, $logged[0]['context']['exception']);
+    }
+
+    public function testIsolatedDispatchHandsPayloadAndObjectEventsOnAsDispatchDoes()
+    {
+        $event   = new EventManager();
+        $shipped = new OrderShipped('A-1');
+        $event->listen(OrderShipped::class, fn (OrderShipped $e) => $e->order);
+        $event->listen(CustomEvent::TEST_EVENT, fn (string $file, int $records) => "$file:$records");
+
+        $this->assertSame(['A-1'], $event->isolated()->dispatch($shipped));
+        $this->assertSame(['catalog.csv:3'], $event->isolated()->dispatch(CustomEvent::TEST_EVENT, 'catalog.csv', 3));
+        $this->assertSame([], $event->isolated()->dispatch('Fixtures\\Events\\NobodyListens'));
+    }
+
+    /**
+     * isolated() is a view on the same manager, not a copy: listeners added
+     * after it was called still receive the event, and the manager's own
+     * dispatch() is not switched to isolation by it.
+     */
+    public function testIsolatedDispatcherUsesTheManagersCurrentListeners()
+    {
+        $event    = new EventManager();
+        $isolated = $event->isolated();
+        $event->listen(CustomEvent::TEST_EVENT, fn () => 'added later');
+
+        $this->assertSame(['added later'], $isolated->dispatch(CustomEvent::TEST_EVENT));
+
+        $event->listen(CustomEvent::TEST_EVENT, fn () => throw new RuntimeException('not isolated here'), priority: 10);
+        $this->expectException(RuntimeException::class);
+        $event->dispatch(CustomEvent::TEST_EVENT);
+    }
+
+    /**
+     * Errors are isolated as well, and a class listener is named by class and
+     * method -- the container builds it inside the isolated call.
+     */
+    public function testIsolatedDispatchNamesClassListenersAndCatchesErrors()
+    {
+        $event = new EventManager();
+        $event->listen(CustomEvent::TEST_EVENT, [FailingEventListener::class, 'handle'], priority: 10);
+        $event->listen(CustomEvent::TEST_EVENT, fn (int $records) => $records, priority: 5);
+        $event->listen(CustomEvent::TEST_EVENT, [TestEventListener::class, 'handle']);
+
+        $logged = $this->captureLoggedErrors(fn () => $this->assertSame(
+            ['test response from class'],
+            $event->isolated()->dispatch(CustomEvent::TEST_EVENT, 'not a number'),
+        ));
+
+        $this->assertCount(2, $logged);
+        $this->assertSame(FailingEventListener::class . '::handle', $logged[0]['context']['listener']);
+        $this->assertInstanceOf(RuntimeException::class, $logged[0]['context']['exception']);
+        $this->assertInstanceOf(TypeError::class, $logged[1]['context']['exception']);
+    }
+
+    /**
+     * Documented on purpose: isolation also swallows an abort(). That is why
+     * guards must stay on dispatch(), which the next test pins down.
+     */
+    public function testIsolatedDispatchAlsoIsolatesAnAbort()
+    {
+        $event = new EventManager();
+        $event->listen(CustomEvent::TEST_EVENT, fn () => abort(400, 'stop'));
+
+        $logged = $this->captureLoggedErrors(fn () => $this->assertSame([], $event->isolated()->dispatch(CustomEvent::TEST_EVENT)));
+
+        $this->assertInstanceOf(AbortException::class, $logged[0]['context']['exception']);
+    }
+
+    /**
+     * dispatch() is untouched: the first exception still stops the dispatch
+     * and reaches the caller, which is what guards such as a CSRF check rely on.
+     */
+    public function testDispatchStillStopsAtTheFirstException()
+    {
+        $event = new EventManager();
+        $ran   = [];
+        $event->listen(CustomEvent::TEST_EVENT, function () use (&$ran) {
+            $ran[] = 'guard';
+            abort(400, 'CSRF token invalid.');
+        }, priority: 10);
+        $event->listen(CustomEvent::TEST_EVENT, function () use (&$ran) {
+            $ran[] = 'after';
+        });
+
+        try {
+            $event->dispatch(CustomEvent::TEST_EVENT);
+            $this->fail('dispatch() swallowed the exception of a listener');
+        } catch (AbortException) {
+            $this->assertSame(['guard'], $ran);
+        }
+    }
+
+    /**
+     * A logger that fails itself must not make the isolated dispatch fail;
+     * PHP's error log takes the report instead.
+     */
+    public function testIsolatedDispatchSurvivesAFailingLogger()
+    {
+        $event = new EventManager();
+        $event->listen(CustomEvent::TEST_EVENT, fn () => throw new RuntimeException('listener failed'), priority: 10);
+        $event->listen(CustomEvent::TEST_EVENT, fn () => 'still runs');
+
+        $logger = $this->createStub(LoggerInterface::class);
+        $logger->method('error')->willThrowException(new RuntimeException('logger failed'));
+
+        $errorLog         = tempnam(sys_get_temp_dir(), 'naf-event-log');
+        $previousErrorLog = ini_set('error_log', $errorLog);
+
+        try {
+            $result = $this->withLogger($logger, fn () => $event->isolated()->dispatch(CustomEvent::TEST_EVENT));
+        } finally {
+            ini_set('error_log', $previousErrorLog === false ? '' : $previousErrorLog);
+        }
+
+        $this->assertSame(['still runs'], $result);
+        $this->assertStringContainsString(
+            'event listener Closure@' . __FILE__,
+            (string) file_get_contents($errorLog),
+        );
+        $this->assertStringContainsString('RuntimeException: listener failed', (string) file_get_contents($errorLog));
+        unlink($errorLog);
+    }
+
+    /**
+     * @return list<array{message: string, context: array<string, mixed>}>
+     */
+    private function captureLoggedErrors(callable $callback): array
+    {
+        $logged = [];
+        $logger = $this->createStub(LoggerInterface::class);
+        $logger->method('error')->willReturnCallback(function (string $message, array $context = []) use (&$logged) {
+            $logged[] = ['message' => $message, 'context' => $context];
+        });
+
+        $this->withLogger($logger, $callback);
+
+        return $logged;
+    }
+
+    private function withLogger(LoggerInterface $logger, callable $callback): mixed
+    {
+        $container = app()->container();
+        $previous  = $container->has(LoggerInterface::class) ? $container->get(LoggerInterface::class) : null;
+        $container->set(LoggerInterface::class, $logger);
+
+        try {
+            return $callback();
+        } finally {
+            if ($previous instanceof LoggerInterface) {
+                $container->set(LoggerInterface::class, $previous);
+            }
+        }
+    }
 }

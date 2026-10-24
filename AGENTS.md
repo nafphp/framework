@@ -26,7 +26,7 @@ describe behavior more broadly than the implementation; for example, `get()` doe
 | Boot, config and installed plugins | [App](src/Core/App.php), [Config](src/Core/Config.php), [CoreFileLoader](src/Support/CoreFileLoader.php), [Plugin](src/Support/Plugin.php) |
 | Services and constructor injection | [Container](src/Core/Container.php), [AutoResolvingContainer](src/Decorators/AutoResolvingContainer.php) |
 | Request matching and handlers | [Route](src/Core/Route.php), [Dispatcher](src/Core/Dispatcher.php), [RequestParameter](src/Support/RequestParameter.php) |
-| Events and HTTP emission | [EventManager](src/Core/EventManager.php), [Event](src/Core/Event.php), [ResponseEmitter](src/Core/ResponseEmitter.php) |
+| Events and HTTP emission | [EventManager](src/Core/EventManager.php), [IsolatedDispatcher](src/Core/IsolatedDispatcher.php), [Event](src/Core/Event.php), [ResponseEmitter](src/Core/ResponseEmitter.php) |
 | Errors and built-in fallback views | [ErrorHandler](src/Core/ErrorHandler.php), [Exceptions](src/Exceptions/), [src/view_helpers.php](src/view_helpers.php) |
 
 Runtime support is PHP 8.3+ with the extensions and PSR dependencies declared in the manifest.
@@ -144,6 +144,10 @@ The example header hook works because `RESPONSE_HEADER` consumes a returned resp
 `dispatchResponse()`, which passes each returned response to the next listener, so several
 listeners can add headers. `dispatchForResponse()` (used for `EXCEPTION`) still selects the last
 response returned and does not pipe one listener's result into the next.
+`dispatch()` stops at the first listener exception and propagates it; guards such as CSRF
+checks rely on that. `event()->isolated()->dispatch()` (Framework 0.2.13+) runs every listener
+on its own, logs a failure with event and listener and keeps going. Use it only for notifications
+about work that already happened, never for guards: it would swallow an `abort()`.
 Inspect payloads and call sites before using an event as an extension point.
 
 ## Verify a change
