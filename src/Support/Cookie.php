@@ -9,13 +9,13 @@ class Cookie
 
     public function __construct(
         private readonly string $name,
-        private readonly string $value,
-        private readonly int    $expire,
-        private readonly string $path,
-        private readonly string $domain,
-        private readonly bool   $secure,
-        private readonly bool   $httponly,
-        private readonly string $samesite,
+        private readonly string $value = '',
+        private readonly int    $expire = 0,
+        private readonly string $path = '/',
+        private readonly string $domain = '',
+        private readonly bool   $secure = false,
+        private readonly bool   $httponly = true,
+        private readonly string $samesite = 'Lax',
     ) {
     }
 
@@ -30,6 +30,9 @@ class Cookie
         if ($this->expire > 0) {
             $parts[] = 'Expires=' . gmdate('D, d-M-Y H:i:s T', $this->expire);
             $parts[] = 'Max-Age=' . max(0, $this->expire - time());
+        } elseif ($this->expire < 0) {
+            $parts[] = 'Expires=Thu, 01-Jan-1970 00:00:01 GMT';
+            $parts[] = 'Max-Age=0';
         }
 
         // Path & Domain
@@ -59,6 +62,9 @@ class Cookie
         return implode('; ', $parts);
     }
 
+    /**
+     * @return array<string, self>
+     */
     public static function fromHeader(string $header): array
     {
         $cookies = [];
@@ -77,19 +83,20 @@ class Cookie
 
             [$name, $value] = array_map('trim', explode('=', $pair, 2) + ['', '']);
 
-            if ($name === '') {
+            $decodedName = rawurldecode($name);
+            if ($decodedName === '') {
                 continue;
             }
 
-            $cookies[$name] = new self(
-                name: urldecode($name),
-                value: urldecode($value),
+            $cookies[$decodedName] = new self(
+                name: $decodedName,
+                value: rawurldecode($value),
                 expire: 0,
                 path: '/',
                 domain: '',
                 secure: false,
                 httponly: false,
-                samesite: ''
+                samesite: '',
             );
         }
 

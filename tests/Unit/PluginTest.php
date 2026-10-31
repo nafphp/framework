@@ -11,6 +11,8 @@ class PluginTest extends NafTestCase
     {
         $plugin = new Plugin('test/package');
 
+        $this->assertSame('test/package', $plugin->getName());
+
         $plugin->addConfigPath('/path/to/config.php');
         $plugin->addViewPath('/path/to/views');
         $plugin->addRouteFile('/path/to/routes.php');

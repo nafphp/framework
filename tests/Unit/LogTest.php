@@ -120,5 +120,27 @@ class LogTest extends NafTestCase
         \Naf\log()->debug('Helper Test');
         $this->assertStringContainsString('Helper Test', file_get_contents(static::TEST_LOG_FILE));
     }
-    
+
+    public function testLogAcceptsStringableMessageAndAppendsUnreferencedContext(): void
+    {
+        $log = new Log(static::TEST_LOG_FILE);
+        $message = new class implements \Stringable {
+            public function __toString(): string
+            {
+                return 'Event {event} failed';
+            }
+        };
+
+        $log->error($message, [
+            'event'     => 'user.registered',
+            'listener'  => 'SendWelcomeMail',
+            'exception' => new \RuntimeException('SMTP down'),
+        ]);
+
+        $contents = (string) file_get_contents(static::TEST_LOG_FILE);
+        $this->assertStringContainsString('Event user.registered failed', $contents);
+        $this->assertStringContainsString('"listener":"SendWelcomeMail"', $contents);
+        $this->assertStringContainsString('"exception":"RuntimeException: SMTP down"', $contents);
+    }
+
 }

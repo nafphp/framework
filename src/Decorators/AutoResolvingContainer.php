@@ -24,7 +24,6 @@ use ReflectionParameter;
  */
 class AutoResolvingContainer implements MutableContainerInterface
 {
-    private array $instances       = [];
     private array $building        = [];
     private array $reflectionCache = [];
 
@@ -44,23 +43,7 @@ class AutoResolvingContainer implements MutableContainerInterface
      */
     public function get(string $id): mixed
     {
-        // 1. Already instantiated in this decorator?
-        if (array_key_exists($id, $this->instances)) {
-            return $this->instances[$id];
-        }
-
-        // 2. Registered in base container?
-        if ($this->container->has($id)) {
-            $service = $this->container->get($id);
-
-            // Cache the resolved service
-            $this->instances[$id] = $service;
-
-            return $service;
-        }
-
-        // 3. Not registered → service not found
-        throw new ServiceNotFoundException("Service '$id' not found.");
+        return $this->container->get($id);
     }
 
     /**
@@ -73,9 +56,6 @@ class AutoResolvingContainer implements MutableContainerInterface
     public function set(string $id, callable|object $factory): void
     {
         $this->container->set($id, $factory);
-
-        // Clear instance cache for this service
-        unset($this->instances[$id]);
     }
 
     /**
@@ -86,7 +66,7 @@ class AutoResolvingContainer implements MutableContainerInterface
      */
     public function has(string $id): bool
     {
-        return array_key_exists($id, $this->instances) || $this->container->has($id);
+        return $this->container->has($id);
     }
 
     /**
@@ -97,7 +77,6 @@ class AutoResolvingContainer implements MutableContainerInterface
      */
     public function reset(string $id): void
     {
-        unset($this->instances[$id]);
         $this->container->reset($id);
     }
 
@@ -118,8 +97,8 @@ class AutoResolvingContainer implements MutableContainerInterface
     public function make(string $className, array $parameters = [], bool $singleton = false)
     {
         // If singleton requested and already exists
-        if ($singleton && isset($this->instances[$className])) {
-            return $this->instances[$className];
+        if ($singleton && $this->has($className)) {
+            return $this->get($className);
         }
 
         // Circular dependency detection
@@ -156,7 +135,6 @@ class AutoResolvingContainer implements MutableContainerInterface
 
             // Optionally store as singleton
             if ($singleton) {
-                $this->instances[$className] = $instance;
                 $this->container->set($className, $instance);
             }
 
@@ -246,6 +224,12 @@ class AutoResolvingContainer implements MutableContainerInterface
                     continue;
                 }
 
+                // Fall back to default parameter value when available (e.g. = new NullLogger())
+                if ($param->isDefaultValueAvailable()) {
+                    $args[] = $param->getDefaultValue();
+                    continue;
+                }
+
                 throw new ServiceNotFoundException(
                     "Cannot resolve dependency '$dependencyId' for parameter '\${$param->getName()}' in '$context'. "
                         . "Make sure the service is registered in the container or that it's a concrete class.",
@@ -304,20 +288,8 @@ class AutoResolvingContainer implements MutableContainerInterface
         if (!empty($explicitParams)) {
             $type = $param->getType();
 
-            if ($type instanceof ReflectionNamedType) {
-                $typeName = $type->getName();
-
-                if ($typeName === 'array') {
-                    return $explicitParams;
-                }
-
-                if (count($explicitParams) === 1) {
-                    return reset($explicitParams);
-                }
-            }
-
-            if (!$type) {
-                return count($explicitParams) === 1 ? reset($explicitParams) : $explicitParams;
+            if ($type instanceof ReflectionNamedType && $type->getName() === 'array') {
+                return $explicitParams;
             }
         }
 

@@ -128,4 +128,64 @@ final class IntegrationHardeningTest extends NafTestCase
         );
         $this->assertSame('firstsecond', ob_get_clean());
     }
+
+    public function testSafePathRejectsTrailingNewlineAndNonStringValues(): void
+    {
+        $app = \Naf\app();
+        (new ReflectionMethod($app, 'loadGuards'))->invoke($app);
+
+        $this->assertSame('views/home.phtml', \Naf\guard()->safePath('views/home.phtml'));
+
+        try {
+            \Naf\guard()->safePath("views/home.phtml\n");
+            $this->fail('Expected trailing newline to be rejected.');
+        } catch (\InvalidArgumentException $e) {
+            $this->assertStringContainsString('Insecure path detected!', $e->getMessage());
+        }
+
+        try {
+            \Naf\guard()->safePath(null);
+            $this->fail('Expected non-string path to be rejected.');
+        } catch (\InvalidArgumentException $e) {
+            $this->assertStringContainsString('Insecure path detected!', $e->getMessage());
+        }
+    }
+
+    public function testSimpleViewSkipsInternalVariablesAndCleansOutputBufferOnFailure(): void
+    {
+        $dir = sys_get_temp_dir() . '/naf-simple-view-' . uniqid('', true);
+        mkdir($dir, 0777, true);
+        $okTemplate   = $dir . '/ok.phtml';
+        $failTemplate = $dir . '/fail.phtml';
+
+        file_put_contents($okTemplate, '<?= basename($template) ?>:<?= $name ?>');
+        file_put_contents($failTemplate, 'partial-output<?php throw new \RuntimeException("View crashed");');
+
+        try {
+            $rendered = \Naf\simple_view($okTemplate, [
+                'template' => '/evil/override.phtml',
+                'name'     => 'Alice',
+            ]);
+            $this->assertSame('ok.phtml:Alice', $rendered);
+
+            $levelBefore = ob_get_level();
+            try {
+                \Naf\simple_view($failTemplate);
+                $this->fail('Expected exception from template.');
+            } catch (\RuntimeException $e) {
+                $this->assertSame('View crashed', $e->getMessage());
+                $this->assertSame($levelBefore, ob_get_level());
+            }
+        } finally {
+            @unlink($okTemplate);
+            @unlink($failTemplate);
+            @rmdir($dir);
+        }
+    }
+
+    public function testErrorHandlerResolvesBasePathConstant(): void
+    {
+        $method = new ReflectionMethod(ErrorHandler::class, 'resolveBasePath');
+        $this->assertSame(rtrim(\BASE_PATH, '/\\'), $method->invoke(null));
+    }
 }

@@ -34,7 +34,7 @@ class Route
 
         // Use an explicit key for unnamed routes; PHP 8.5 deprecates null keys.
         $this->routes[$name ?? ''] = [
-            'method' => $method,
+            'method' => strtoupper($method),
             'path'   => $path,
             'action' => $action,
         ];
@@ -74,11 +74,11 @@ class Route
      * @param string $uri
      * @param string $method
      *
-     * @return array|null
+     * @return array
      * @throws RouteNotFoundException
      * @throws MethodNotAllowedException
      */
-    public function find(string $uri, string $method): ?array
+    public function find(string $uri, string $method): array
     {
         $this->currentName = null;
         $method            = strtoupper($method);
@@ -89,7 +89,7 @@ class Route
         foreach ($this->routes as $name => $route) {
             // PHP converts numeric string keys to integers; route names stay strings.
             $name    = (string) $name;
-            $pattern = '#^' . self::pattern($route['path']) . '$#';
+            $pattern = '#^' . self::pattern($route['path']) . '$#D';
             if (preg_match($pattern, $uri, $matches)) {
                 $allowed[] = $route['method'];
                 if ($route['method'] === 'GET') {

@@ -27,7 +27,7 @@ class Guard
         return isset($this->guards[$name]);
     }
 
-    public function run(string $name, ...$payload): mixed
+    public function run(string $name, mixed ...$payload): mixed
     {
         if (!$this->has($name) || !is_callable($this->guards[$name])) {
             throw new \RuntimeException('Guard "' . $name . '" not found.');
@@ -36,7 +36,7 @@ class Guard
         return $this->guards[$name](...$payload);
     }
 
-    public function __call(string $name, array $arguments)
+    public function __call(string $name, array $arguments): mixed
     {
         return $this->run($name, ...$arguments);
     }

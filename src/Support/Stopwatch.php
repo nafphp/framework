@@ -9,6 +9,7 @@ use RuntimeException;
 /** @internal Framework implementation; use the documented application and plugin APIs. */
 class Stopwatch
 {
+    /** @var array<string, float> */
     private static array $data = [];
 
     public static function start(?string $id = null): void
@@ -24,11 +25,27 @@ class Stopwatch
         self::$data[$id] = microtime(true);
     }
 
+    public static function has(string $id): bool
+    {
+        return isset(self::$data[$id]);
+    }
+
+    public static function reset(?string $id = null): void
+    {
+        if ($id === null) {
+            self::$data = [];
+
+            return;
+        }
+
+        unset(self::$data[$id]);
+    }
+
     public static function stop(?string $id = null): string
     {
         $startTime = null;
 
-        if ($id && isset(self::$data[$id])) {
+        if ($id !== null && $id !== '' && isset(self::$data[$id])) {
             $startTime = self::$data[$id];
             unset(self::$data[$id]);
         }
@@ -37,7 +54,7 @@ class Stopwatch
             $startTime = array_pop(self::$data);
         }
 
-        if (!$startTime) {
+        if ($startTime === null) {
             throw new RuntimeException('Stopwatch not started.');
         }
 
@@ -48,6 +65,6 @@ class Stopwatch
 
     private static function format(float $number): string
     {
-        return number_format($number, 5);
+        return number_format($number, 5, '.', '');
     }
 }

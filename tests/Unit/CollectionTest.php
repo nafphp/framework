@@ -12,9 +12,12 @@ class CollectionTest extends NafTestCase
     {
         $collection = new Collection();
         $collection->add('foo', 'bar');
+        $collection->add('nullable');
         $this->assertTrue($collection->has('foo'));
+        $this->assertTrue($collection->has('nullable'));
         $this->assertSame('bar', $collection->get('foo'));
-        $this->assertSame(['foo' => 'bar'], $collection->all());
+        $this->assertNull($collection->get('nullable'));
+        $this->assertSame(['foo' => 'bar', 'nullable' => null], $collection->all());
     }
 
 }

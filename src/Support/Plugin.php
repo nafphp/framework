@@ -22,6 +22,11 @@ class Plugin
         $this->name = $name;
     }
 
+    public function getName(): string
+    {
+        return $this->name;
+    }
+
     public function addConfigPath(string $path): void
     {
         $this->configPaths[] = $path;
@@ -77,11 +82,6 @@ class Plugin
     {
         if ($this->booted) {
             return;
-        }
-
-        foreach ($this->configPaths as $configPath) {
-            if (!file_exists($configPath)) continue;
-            require_once $configPath;
         }
 
         foreach ($this->routeFiles as $routeFile) {
@@ -183,7 +183,7 @@ class Plugin
 
     private static function parseVersionConstraint(string $constraint): array
     {
-        if (preg_match('/^(>=|<=|>|<|=)?\s*(.+)$/', trim($constraint), $matches)) {
+        if (preg_match('/^(>=|<=|!=|==|>|<|=)?\s*(.+)$/', trim($constraint), $matches)) {
             $operator = $matches[1] ?: '==';
             $version = self::normalizeVersion($matches[2]);
 

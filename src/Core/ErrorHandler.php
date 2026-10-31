@@ -308,6 +308,13 @@ class ErrorHandler
 
     private static function resolveBasePath(): ?string
     {
+        if (defined('\BASE_PATH')) {
+            $path = realpath((string) constant('BASE_PATH'));
+            if ($path !== false) {
+                return $path;
+            }
+        }
+
         if (!defined('\NAF_BASE_PATH')) {
             return null;
         }

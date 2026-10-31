@@ -127,7 +127,7 @@ class Log implements LoggerInterface
     public function log($level, mixed $message, array $context = []): void
     {
         $date = date('Y-m-d H:i:s');
-        $interpolatedMessage = $this->interpolate($message, $context);
+        $interpolatedMessage = $this->interpolate((string) $message, $context);
         $logLine = "[$date] [$level] $interpolatedMessage" . PHP_EOL;
         file_put_contents($this->logFile, $logLine, FILE_APPEND | LOCK_EX);
     }
@@ -142,13 +142,30 @@ class Log implements LoggerInterface
      */
     private function interpolate(string $message, array $context): string
     {
-        // Placeholder {key} will be replaced by variables in $contexts
+        // Placeholder {key} will be replaced by variables in $context
         $replace = [];
+        $unused  = [];
         foreach ($context as $key => $val) {
-            $replace['{' . $key . '}'] = $this->formatValue($val);
+            $placeholder = '{' . $key . '}';
+            if (str_contains($message, $placeholder)) {
+                $replace[$placeholder] = $this->formatValue($val);
+            } else {
+                $unused[$key] = $val instanceof \Throwable
+                    ? $val::class . ': ' . $val->getMessage()
+                    : $val;
+            }
         }
 
-        return strtr($message, $replace);
+        $interpolated = strtr($message, $replace);
+
+        if ($unused !== []) {
+            $encoded = json_encode($unused, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            if ($encoded !== false) {
+                $interpolated .= ' ' . $encoded;
+            }
+        }
+
+        return $interpolated;
     }
 
     private function formatValue(mixed $value): string

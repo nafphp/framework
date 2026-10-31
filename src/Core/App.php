@@ -9,6 +9,7 @@ use InvalidArgumentException;
 use LogicException;
 use Naf\Contracts\ConfigurationSourceInterface;
 use Naf\Contracts\MutableContainerInterface;
+use Naf\Exceptions\HttpException;
 use Naf\Exceptions\MethodNotAllowedException;
 use Naf\Support\AppHolder;
 use Naf\Support\CoreFileLoader;
@@ -16,6 +17,7 @@ use Naf\Support\Guard;
 use Naf\Support\Plugin;
 use Naf\Support\PluginBootOrder;
 use Naf\Support\RequestParameter;
+use Naf\Support\Stopwatch;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7Server\ServerRequestCreator;
 use OutOfBoundsException;
@@ -40,6 +42,8 @@ class App
 
     public function __construct(private MutableContainerInterface $container)
     {
+        Stopwatch::reset('app');
+        Stopwatch::start('app');
         AppHolder::set($this);
         $this->boot();
     }
@@ -56,8 +60,11 @@ class App
         try {
             $request = $this->createServerRequest();
         } catch (Throwable $e) {
-            $response = $this->handleThrowable($e);
-            $this->finalizeResponse($response, 0.0);
+            $response = $this->handleThrowable(
+                $e instanceof InvalidArgumentException ? new HttpException($e->getMessage(), 400) : $e,
+            );
+            $elapsed  = Stopwatch::has('app') ? (float) Stopwatch::stop('app') : 0.0;
+            $this->finalizeResponse($response, $elapsed);
             ResponseEmitter::send($response);
         }
 
@@ -77,7 +84,10 @@ class App
         }
 
         $this->handlingRequest = true;
-        $started               = hrtime(true);
+        if (!Stopwatch::has('app')) {
+            Stopwatch::start('app');
+        }
+        $started = hrtime(true);
         AppHolder::set($this);
 
         try {
@@ -91,7 +101,10 @@ class App
             }
 
             $response = ResponseEmitter::prepare($response, $request->getMethod());
-            $this->finalizeResponse($response, (hrtime(true) - $started) / 1_000_000_000);
+            $elapsed  = Stopwatch::has('app')
+                ? (float) Stopwatch::stop('app')
+                : (hrtime(true) - $started) / 1_000_000_000;
+            $this->finalizeResponse($response, $elapsed);
 
             return $response;
         } finally {
@@ -159,7 +172,7 @@ class App
      *
      * @return MutableContainerInterface The writable container instance
      */
-    public function container(): ContainerInterface
+    public function container(): MutableContainerInterface
     {
         return $this->container;
     }
@@ -282,11 +295,15 @@ class App
      */
     private function boot(): void
     {
-        $envFile = file_exists($this->getBasePath() . '/.env.local')
-            ? $this->getBasePath() . '/.env.local'
-            : $this->getBasePath() . '/.env';
+        $basePath = $this->getBasePath();
+        if ($basePath !== null) {
+            $envFile = file_exists($basePath . '/.env.local')
+                ? $basePath . '/.env.local'
+                : $basePath . '/.env';
 
-        $this->loadEnv($envFile);
+            $this->loadEnv($envFile);
+        }
+
         $this->loadServices();
         $this->loadPlugins();
         $this->loadRoutes();
@@ -306,12 +323,18 @@ class App
      */
     private function loadEnv(string $path = '/.env'): void
     {
-        if (!file_exists($path)) {
+        if (!is_file($path)) {
             return;
         }
 
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
-            if (str_starts_with(trim($line), '#')) {
+        $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        if ($lines === false) {
+            return;
+        }
+
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if ($line === '' || str_starts_with($line, '#') || !str_contains($line, '=')) {
                 continue;
             }
 
@@ -320,7 +343,7 @@ class App
             $key   = trim($key);
             $value = trim($value);
 
-            if (!array_key_exists($key, $_ENV) && getenv($key) === false) {
+            if ($key !== '' && !array_key_exists($key, $_ENV) && getenv($key) === false) {
                 $_ENV[$key] = $value;
                 putenv("$key=$value");
             }
@@ -335,7 +358,11 @@ class App
         $appConfigFile = CoreFileLoader::file($this->getBasePath(), CoreFileLoader::CONFIG_FILES);
         $coreDir       = $this->getCoreBasePath() . '/src';
 
-        $this->container->set(Environment::class, fn() => $_ENV['APP_ENV'] ?? getenv('APP_ENV'));
+        $this->container->set(Environment::class, function (): string {
+            $env = $_ENV['APP_ENV'] ?? getenv('APP_ENV');
+
+            return is_string($env) ? $env : '';
+        });
 
         $this->container->set(Guard::class, fn() => new Guard());
 
@@ -378,7 +405,7 @@ class App
                         throw new InvalidArgumentException('Invalid configuration source in ' . $file);
                     }
                     $source = new $class();
-                    $configuration->overlay($source->name(), $source->load($this->getBasePath()));
+                    $configuration->overlay($source->name(), $source->load($this->getBasePath() ?? ''));
                 }
             }
 
@@ -386,7 +413,8 @@ class App
         });
 
         $this->container->set(LoggerInterface::class, function () {
-            $logFile   = $this->getBasePath() . '/logs/app.log';
+            $basePath  = $this->getBasePath() ?? sys_get_temp_dir();
+            $logFile   = $basePath . '/logs/app.log';
             $directory = dirname($logFile);
 
             if (!is_dir($directory)) {
@@ -518,11 +546,12 @@ class App
 
         $this->guard()->register('safePath', function ($path) {
             if (
-                $path === ''
+                !is_string($path)
+                || $path === ''
                 || str_contains($path, '..')
                 || str_starts_with($path, '/')
                 || str_contains($path, '://')
-                || !preg_match('/^[A-Za-z0-9_\/.-]+$/', $path)
+                || !preg_match('/^[A-Za-z0-9_\/.-]+$/D', $path)
             ) {
                 throw new InvalidArgumentException(
                     'Insecure path detected! Navigation outside of application root is not allowed.',

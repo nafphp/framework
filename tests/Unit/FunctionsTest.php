@@ -5,6 +5,7 @@ namespace Tests\Unit;
 use Nyholm\Psr7\Request;
 use Nyholm\Psr7\ServerRequest;
 use Naf\Exceptions\AbortException;
+use Naf\Exceptions\HttpException;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -70,8 +71,14 @@ class FunctionsTest extends NafTestCase
 
     public function testAbort()
     {
-        $this->expectException(AbortException::class);
-        abort();
+        try {
+            abort(422, 'Invalid <input> & "state"');
+            $this->fail('Expected AbortException');
+        } catch (AbortException $e) {
+            $this->assertInstanceOf(HttpException::class, $e);
+            $this->assertSame(422, $e->getStatusCode());
+            $this->assertSame('Invalid <input> & "state"', $e->getMessage());
+        }
     }
 
 }

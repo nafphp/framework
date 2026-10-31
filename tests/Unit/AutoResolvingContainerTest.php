@@ -74,6 +74,19 @@ class ServiceWithScalars {
     ) {}
 }
 
+class ServiceWithTwoRequiredScalars {
+    public function __construct(
+        public string $first,
+        public string $second
+    ) {}
+}
+
+class ServiceWithDefaultObjectDependency {
+    public function __construct(
+        public LoggerInterface $logger = new FileLogger()
+    ) {}
+}
+
 // Service with nullable dependency
 class ServiceWithNullable {
     public function __construct(
@@ -377,5 +390,42 @@ class AutoResolvingContainerTest extends NafTestCase {
         $this->container->reset('test');
 
         $this->assertFalse($this->container->has('test'));
+    }
+
+    public function testMakeAcceptsExplicitNamedAndPositionalParameters(): void
+    {
+        $byName = $this->container->make(ServiceWithScalars::class, ['name' => 'named', 'count' => 3]);
+        $this->assertSame('named', $byName->name);
+        $this->assertSame(3, $byName->count);
+
+        $byPos = $this->container->make(ServiceWithScalars::class, ['positional', 7]);
+        $this->assertSame('positional', $byPos->name);
+        $this->assertSame(7, $byPos->count);
+    }
+
+    public function testMakeDoesNotLeakSingleNamedParameterIntoUnmatchedScalarParameter(): void
+    {
+        $this->expectException(ContainerException::class);
+        $this->expectExceptionMessage("Cannot autowire parameter '\$second'");
+
+        $this->container->make(ServiceWithTwoRequiredScalars::class, ['first' => 'only-first']);
+    }
+
+    public function testMakeUsesDefaultObjectValueWhenInterfaceIsNotRegistered(): void
+    {
+        $service = $this->container->make(ServiceWithDefaultObjectDependency::class);
+
+        $this->assertInstanceOf(FileLogger::class, $service->logger);
+    }
+
+    public function testMakeWithSingletonHonorsPreRegisteredContainerBinding(): void
+    {
+        $registered = new SimpleService();
+        $registered->name = 'from-binding';
+        $this->container->set(SimpleService::class, fn() => $registered);
+
+        $resolved = $this->container->make(SimpleService::class, singleton: true);
+
+        $this->assertSame($registered, $resolved);
     }
 }

@@ -25,11 +25,12 @@ class GuardTest extends NafTestCase
         $guard->register('safePath', function ($path) {
 
             if (
+                !is_string($path) ||
                 $path === '' ||
                 str_contains($path, '..') ||
                 str_starts_with($path, '/') ||
                 str_contains($path, '://') ||
-                !preg_match('/^[A-Za-z0-9_\/.-]+$/', $path)
+                !preg_match('/^[A-Za-z0-9_\/.-]+$/D', $path)
             ) {
                 throw new \InvalidArgumentException('Insecure path detected! Please find another solution.');
             }

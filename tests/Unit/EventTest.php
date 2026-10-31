@@ -34,6 +34,27 @@ class EventTest extends NafTestCase
         $this->assertSame([0 => 'test response from class'], $event->dispatch(CustomEvent::TEST_EVENT));
     }
 
+    public function testBoundClassListenerIsResolvedFromContainer(): void
+    {
+        $custom = new class extends TestEventListener {
+            public function handle(): string
+            {
+                return 'from bound container instance';
+            }
+        };
+
+        $container = app()->container();
+        $container->set(TestEventListener::class, $custom);
+
+        try {
+            $event = new EventManager();
+            $event->listen(CustomEvent::TEST_EVENT, [TestEventListener::class, 'handle']);
+            $this->assertSame(['from bound container instance'], $event->dispatch(CustomEvent::TEST_EVENT));
+        } finally {
+            $container->reset(TestEventListener::class);
+        }
+    }
+
     public function testEventPriorityOrder()
     {
         $event = new EventManager();

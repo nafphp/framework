@@ -224,9 +224,14 @@ class EventManager
         if ($this->isClassListener($callback)) {
             [$class, $handle] = $callback;
             $container        = app()->container();
-            $object           = $container instanceof AutoResolvingContainer
-                ? $container->make($class)
-                : new $class();
+
+            if ($container->has($class)) {
+                $object = $container->get($class);
+            } elseif ($container instanceof AutoResolvingContainer) {
+                $object = $container->make($class);
+            } else {
+                $object = new $class();
+            }
 
             return $object->$handle(...$payload);
         }

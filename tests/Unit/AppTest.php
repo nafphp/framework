@@ -26,12 +26,16 @@ class AppTest extends NafTestCase
 
         $this->assertTrue($app->hasPlugin('naf/database'));
         $this->assertTrue($app->hasPlugin('naf/database:0.1.2'));
+        $this->assertTrue($app->hasPlugin('naf/database:==0.1.2'));
+        $this->assertTrue($app->hasPlugin('naf/database:!=0.1.1'));
+        $this->assertFalse($app->hasPlugin('naf/database:!=0.1.2'));
         $this->assertTrue($app->hasPlugin('naf/database:>=0.1.2'));
         $this->assertTrue($app->hasPlugin('naf/database:>0.1.1'));
         $this->assertTrue($app->hasPlugin('naf/database:<=0.1.2'));
         $this->assertFalse($app->hasPlugin('naf/database:>0.1.2'));
         $this->assertFalse($app->hasPlugin('naf/database:<0.1.2'));
         $this->assertFalse($app->hasPlugin('naf/nonexistent:>=1.0.0'));
+        $this->assertSame('naf/database', $app->getPlugin('naf/database')->getName());
     }
 
     public function testEveryPluginIsRegisteredBeforeAnyOfThemBoots()
@@ -74,7 +78,7 @@ class AppTest extends NafTestCase
     public function testTheEnvFileFillsGapsAndLeavesTheProcessEnvironmentAlone()
     {
         $file = tempnam(sys_get_temp_dir(), 'naf-env');
-        file_put_contents($file, "NAF_DOTENV_SET=from-file\nNAF_DOTENV_GAP=from-file\n");
+        file_put_contents($file, "   \n# comment\nMALFORMED_LINE\nNAF_DOTENV_SET=from-file\nNAF_DOTENV_GAP=from-file\n");
         unset($_ENV['NAF_DOTENV_SET'], $_ENV['NAF_DOTENV_GAP']);
         // Set by the process -- Compose, a shell -- and, as with a stock
         // php.ini, not in $_ENV.

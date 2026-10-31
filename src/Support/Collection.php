@@ -53,6 +53,6 @@ class Collection
      */
     public function has(string $key): bool
     {
-        return isset($this->items[$key]);
+        return array_key_exists($key, $this->items);
     }
 }

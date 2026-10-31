@@ -1,7 +1,3 @@
-<?php
-use function Naf\s;
-?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -112,16 +108,15 @@ use function Naf\s;
         <hr />
 
         <?php $code = <<<CODE
+        &lt;?php
         // File: app/routes.php
         
         use function Naf\\response;
         use function Naf\\route;
         
-        &lt;?php
-        
         route()->add('GET', '/', function() {
             return response('Hello World!');
-        });
+        }, 'home');
         CODE; ?>
 
         <h2>Example</h2>

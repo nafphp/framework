@@ -25,7 +25,14 @@ function simple_render(string $template, array $vars = []): ResponseInterface
 function simple_view(string $template, array $vars = []): string
 {
     ob_start();
-    extract($vars);
-    include $template;
-    return ob_get_clean();
+    try {
+        extract($vars, EXTR_SKIP);
+        include $template;
+
+        return (string) ob_get_clean();
+    } catch (\Throwable $e) {
+        ob_end_clean();
+
+        throw $e;
+    }
 }

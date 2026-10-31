@@ -229,4 +229,22 @@ class RouteTest extends NafTestCase
         $this->assertTrue($route->remove('kept'));
         $this->assertNull($route->current());
     }
+
+    public function testLowercaseRouteMethodIsNormalizedOnRegistration(): void
+    {
+        $route = new Route();
+        $route->add('get', '/normalized', static fn() => 'ok', 'normalized');
+
+        $this->assertSame('normalized', $route->find('/normalized', 'GET')['name']);
+        $this->assertSame('normalized', $route->find('/normalized', 'HEAD')['name']);
+    }
+
+    public function testTrailingNewlineDoesNotMatchRoutePath(): void
+    {
+        $route = new Route();
+        $route->add('GET', '/exact', static fn() => 'ok', 'exact');
+
+        $this->expectException(RouteNotFoundException::class);
+        $route->find("/exact\n", 'GET');
+    }
 }

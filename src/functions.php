@@ -25,11 +25,9 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Log\LoggerInterface;
 
-if (getenv('APP_ENV') !== Environment::TEST
-    && getenv('APP_ENV') !== Environment::PROD
-) {
+if (($_ENV['APP_ENV'] ?? getenv('APP_ENV')) !== Environment::TEST) {
     ErrorHandler::register();
-    ini_set('display_errors', false);
+    ini_set('display_errors', '0');
 }
 
 /**
@@ -52,7 +50,7 @@ function config(?string $key = null, mixed $default = null): mixed
 {
     $config = app()->container()->get(Config::class);
 
-    if (empty($key)) {
+    if ($key === null || $key === '') {
         return $config->all();
     }
 
@@ -85,7 +83,7 @@ function route(?string $name = null, array $params = []): Route|string
  */
 function plugin(?string $name = null): Plugin|array
 {
-    if ($name) {
+    if ($name !== null && $name !== '') {
         return app()->getPlugin($name);
     }
 
@@ -174,7 +172,7 @@ function refresh(): ResponseInterface
  */
 function abort(int $statusCode = 404, string $message = ''): never
 {
-    throw new AbortException(htmlspecialchars($message), $statusCode);
+    throw new AbortException($message, $statusCode);
 }
 
 
