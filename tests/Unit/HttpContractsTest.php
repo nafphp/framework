@@ -129,12 +129,12 @@ final class HttpContractsTest extends NafTestCase
         self::assertSame([Event::REQUEST_START, Event::CONTROLLER_CALLING, Event::CONTROLLER_CALLED, Event::RESPONSE_SEND], $seen);
     }
 
-    public function testUrlParametersAreRequiredAndEncodingRemainsTheCallersResponsibility(): void
+    public function testUrlParametersAreRequiredAndEncodedOnce(): void
     {
         $route = new Route();
         $route->add('GET', '/items/{id}/{slug}', static fn() => new Response(), 'items');
-        self::assertSame('/items/0/a%2Fb%3Fx%3D1', $route->url('items', ['id' => 0, 'slug' => rawurlencode('a/b?x=1')]));
-        self::assertSame('/items/{slug}/literal', $route->url('items', ['id' => '{slug}', 'slug' => 'literal']));
+        self::assertSame('/items/0/a%2Fb%3Fx%3D1', $route->url('items', ['id' => 0, 'slug' => 'a/b?x=1']));
+        self::assertSame('/items/%7Bslug%7D/literal', $route->url('items', ['id' => '{slug}', 'slug' => 'literal']));
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage("Missing parameter 'slug' for route 'items'.");
         $route->url('items', ['id' => 42]);

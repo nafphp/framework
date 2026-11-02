@@ -518,11 +518,12 @@ class App
 
         $this->guard()->register('safePath', function ($path) {
             if (
-                $path === ''
+                !is_string($path)
+                || $path === ''
                 || str_contains($path, '..')
                 || str_starts_with($path, '/')
                 || str_contains($path, '://')
-                || !preg_match('/^[A-Za-z0-9_\/.-]+$/', $path)
+                || !preg_match('/^[A-Za-z0-9_\/.-]+$/D', $path)
             ) {
                 throw new InvalidArgumentException(
                     'Insecure path detected! Navigation outside of application root is not allowed.',

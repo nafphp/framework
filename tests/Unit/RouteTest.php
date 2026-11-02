@@ -117,6 +117,27 @@ class RouteTest extends NafTestCase
         $route->url('123', ['id' => 0]);
     }
 
+    public function testRawValuesRoundTripWithoutChangingPathBoundaries(): void
+    {
+        $route = new Route();
+        $route->add('GET', '/files/{name}/edit', static fn() => null, 'file');
+        foreach ([
+            'a/b?c#d% e' => 'a%2Fb%3Fc%23d%25%20e',
+            'a%2Fb' => 'a%252Fb',
+            'a+b' => 'a%2Bb',
+            'Grüße' => 'Gr%C3%BC%C3%9Fe',
+            '%252F' => '%25252F',
+        ] as $raw => $encoded) {
+            $url = $route->url('file', ['name' => $raw]);
+            self::assertSame('/files/' . $encoded . '/edit', $url);
+            self::assertSame(['name' => $raw], $route->find($url, 'GET')['params']);
+            self::assertSame(['name' => $raw], $route->find($url, 'HEAD')['params']);
+        }
+        self::assertSame(['name' => 'a+b'], $route->find('/files/a+b/edit', 'GET')['params']);
+        self::assertSame(['name' => 'a%2Fb'], $route->find('/files/a%252Fb/edit', 'GET')['params']);
+        self::assertSame(['name' => '%invalid'], $route->find('/files/%invalid/edit', 'GET')['params']);
+    }
+
     public function testHelperFunction()
     {
         \Naf\route()->add('GET', '/test', function () {
