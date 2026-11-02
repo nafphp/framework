@@ -25,12 +25,8 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Log\LoggerInterface;
 
-if (getenv('APP_ENV') !== Environment::TEST
-    && getenv('APP_ENV') !== Environment::PROD
-) {
-    ErrorHandler::register();
-    ini_set('display_errors', false);
-}
+// Protect bootstrap failures before app() has loaded the environment file.
+ErrorHandler::register();
 
 /**
  * Get the application instance

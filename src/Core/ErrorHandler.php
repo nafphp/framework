@@ -33,9 +33,14 @@ class ErrorHandler
             self::renderConsole($e);
         }
 
-        $statusCode = self::resolveStatusCode($e);
+        // Do not resolve application services here: boot itself may have failed.
+        error_log((string) $e);
 
-        ResponseEmitter::emit(self::renderResponse($e, $statusCode));
+        try {
+            ResponseEmitter::emit(self::renderResponse($e, self::resolveStatusCode($e)));
+        } catch (Throwable $renderException) {
+            self::sendShutdownFallback($renderException);
+        }
     }
 
     /**
@@ -72,11 +77,15 @@ class ErrorHandler
 
     public static function resolveStatusCode(Throwable $exception): int
     {
-        return method_exists($exception, 'getStatusCode') ? $exception->getStatusCode() : 500;
+        $status = is_callable([$exception, 'getStatusCode']) ? $exception->getStatusCode() : 500;
+
+        return is_int($status) && $status >= 400 && $status <= 599 ? $status : 500;
     }
 
     public static function register(): void
     {
+        ini_set('display_errors', '0');
+        ini_set('display_startup_errors', '0');
         set_error_handler([self::class, 'handleError']);
         set_exception_handler([self::class, 'handleException']);
         if (!self::$shutdownRegistered) {
@@ -124,7 +133,7 @@ class ErrorHandler
     /**
      * Renders an HTTP response for an exception.
      *
-     * The detailed template is only rendered for non-production/test environments.
+     * The detailed template is only rendered for the explicit dev environment.
      *
      * @param Throwable $exception
      * @param int        $statusCode
@@ -192,13 +201,9 @@ class ErrorHandler
 
     private static function getEnvironment(): ?string
     {
-        if (isset($_ENV['APP_ENV'])) {
-            return $_ENV['APP_ENV'];
-        }
+        $value = $_ENV['APP_ENV'] ?? getenv('APP_ENV');
 
-        $value = getenv('APP_ENV');
-
-        return $value === false ? null : $value;
+        return is_string($value) ? $value : null;
     }
 
     private static function logMissingEnvironmentWarning(): void
@@ -210,15 +215,6 @@ class ErrorHandler
         }
 
         $hasWarned = true;
-
-        if (function_exists('Naf\\log')) {
-            try {
-                \Naf\log()->warning('APP_ENV is not set; defaulting to sanitized error output.');
-
-                return;
-            } catch (Throwable) {
-            }
-        }
 
         error_log('APP_ENV is not set; defaulting to sanitized error output.');
     }
@@ -319,6 +315,8 @@ class ErrorHandler
 
     private static function sendShutdownFallback(Throwable $exception): void
     {
+        error_log((string) $exception);
+
         // Whatever was buffered belongs to the request that just died; keep it
         // from being flushed in front of the fallback output.
         ResponseEmitter::clearOutputBuffers();

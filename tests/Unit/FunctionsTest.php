@@ -74,4 +74,10 @@ class FunctionsTest extends NafTestCase
         abort();
     }
 
+    public function testRedirectRejectsHeaderLineBreaks(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        \Naf\redirect("/safe\r\nX-Injected: yes");
+    }
+
 }

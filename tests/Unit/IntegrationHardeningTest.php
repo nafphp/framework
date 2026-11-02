@@ -107,6 +107,8 @@ final class IntegrationHardeningTest extends NafTestCase
         $this->assertSame('', \Naf\guard()->safeOutput(null));
         $this->assertSame(['', '&lt;b&gt;'], \Naf\guard()->safeOutput([null, '<b>']));
         $this->assertSame("\u{fffd}", \Naf\guard()->safeOutput("\xff"));
+        $this->assertSame('&quot;&#039;&lt;&gt;&amp;', \Naf\guard()->safeOutput("\"'<>&"));
+        $this->assertSame(['named' => '&lt;script&gt;'], \Naf\guard()->safeOutput(['named' => '<script>']));
     }
 
     public function testEmitterReadsBoundedChunksWithoutStringConversion(): void
@@ -128,4 +130,47 @@ final class IntegrationHardeningTest extends NafTestCase
         );
         $this->assertSame('firstsecond', ob_get_clean());
     }
+    public function testSimpleViewProtectsItsIncludeAndCleansNestedBuffers(): void
+    {
+        $template = tempnam(sys_get_temp_dir(), 'naf-template-');
+        $before = ob_get_level();
+        try {
+            file_put_contents($template, '<?= $name ?>');
+            self::assertSame('Alice', \Naf\simple_view($template, [
+                'template' => '/invalid/include.php', 'bufferLevel' => -1, 'name' => 'Alice',
+            ]));
+            file_put_contents($template, '<?php echo "partial-secret"; ob_start(); echo "nested-secret"; throw new \RuntimeException("render failed");');
+            ob_start();
+            echo 'caller-output';
+            try {
+                \Naf\simple_view($template, ['bufferLevel' => -1]);
+                self::fail('Expected rendering to fail.');
+            } catch (RuntimeException $exception) {
+                self::assertSame('render failed', $exception->getMessage());
+                self::assertSame($before + 1, ob_get_level());
+                self::assertSame('caller-output', ob_get_contents());
+            }
+        } finally {
+            while (ob_get_level() > $before) {
+                ob_end_clean();
+            }
+            unlink($template);
+        }
+    }
+
+    public function testTemplatePathGuardRejectsTraversalWrappersAndInvalidTypes(): void
+    {
+        $application = \Naf\app();
+        (new ReflectionMethod($application, 'loadGuards'))->invoke($application);
+        foreach (['../private', '/etc/passwd', 'php://filter', "home\n", "home\0", null, ['home']] as $path) {
+            try {
+                \Naf\guard()->safePath($path);
+                self::fail('Expected unsafe path rejection.');
+            } catch (\InvalidArgumentException $exception) {
+                self::assertStringContainsString('Insecure path', $exception->getMessage());
+            }
+        }
+        self::assertSame('layouts/base', \Naf\guard()->safePath('layouts/base'));
+    }
+
 }

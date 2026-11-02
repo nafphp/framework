@@ -86,7 +86,8 @@ adding abstractions. Do not add application-specific dependencies to the core.
   an unsupported method produce 405 plus Allow, including implicit HEAD and OPTIONS.
   Explicit OPTIONS routes win; otherwise Dispatcher returns 204 plus Allow without calling
   a controller. Unknown paths stay 404. URL generation requires every placeholder as a
-  string or integer; callers still use rawurlencode(), and substitution happens once.
+  string or integer; values are encoded as individual path segments. Pass raw values; matching decodes captures
+  once after matching the encoded path.
 
 ## Exercise it through a real host
 

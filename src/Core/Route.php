@@ -97,7 +97,7 @@ class Route
                 }
                 array_shift($matches);
                 preg_match_all('#\{([^}]+)\}#', $route['path'], $paramNames);
-                $params = array_combine($paramNames[1], $matches);
+                $params = array_combine($paramNames[1], array_map('rawurldecode', $matches));
                 $match  = ['action' => $route['action'], 'params' => $params, 'name' => $name];
                 if ($route['method'] === $method) {
                     $this->currentName = $name;
@@ -162,7 +162,8 @@ class Route
     }
 
     /**
-     * Generates a URL for a given route name and parameters.
+     * Generates a URL from raw parameter values, encoding each as one path segment.
+     * Matching decodes captured values once, after segment boundaries are resolved.
      *
      * @param string $name
      * @param array<string, int|string>  $params
@@ -187,7 +188,7 @@ class Route
             if (!is_string($params[$placeholder]) && !is_int($params[$placeholder])) {
                 throw new InvalidArgumentException("Parameter '{$placeholder}' for route '{$name}' must be a string or integer.");
             }
-            $replacements['{' . $placeholder . '}'] = (string) $params[$placeholder];
+            $replacements['{' . $placeholder . '}'] = rawurlencode((string) $params[$placeholder]);
         }
 
         return strtr($url, $replacements);

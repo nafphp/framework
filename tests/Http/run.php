@@ -62,3 +62,5 @@ try {
     $host?->stop();
     HttpHost::remove($root);
 }
+
+require __DIR__ . '/security.php';

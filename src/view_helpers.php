@@ -24,8 +24,16 @@ function simple_render(string $template, array $vars = []): ResponseInterface
  */
 function simple_view(string $template, array $vars = []): string
 {
+    $bufferLevel = ob_get_level();
     ob_start();
-    extract($vars);
-    include $template;
-    return ob_get_clean();
+    try {
+        extract($vars, EXTR_SKIP);
+        include $template;
+
+        return (string) ob_get_clean();
+    } finally {
+        while (ob_get_level() > $bufferLevel) {
+            ob_end_clean();
+        }
+    }
 }
